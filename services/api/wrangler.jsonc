@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nestr-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  }
+  // Secrets (set via `wrangler secret put`, not committed):
+  //   ANTHROPIC_API_KEY
+  // Local dev reads them from services/api/.dev.vars
+  //
+  // D1 (Phase 4) — uncomment when adding persistence:
+  // "d1_databases": [
+  //   { "binding": "DB", "database_name": "nestr", "database_id": "<id>" }
+  // ]
+}

@@ -15,11 +15,15 @@ import {
   saveTasks,
 } from "./lib/storage.js";
 import { todayISO } from "./lib/format.js";
+import { advise, estimateDurations, type PlanAdvice } from "./lib/ai.js";
 
 export function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
   const [prefs] = useState<PlanningPreferences>(() => loadPreferences());
   const [plan, setPlan] = useState<DailyPlan | null>(null);
+  const [advice, setAdvice] = useState<PlanAdvice | null>(null);
+  const [busy, setBusy] = useState<null | "estimate" | "plan">(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => saveTasks(tasks), [tasks]);
   useEffect(() => savePreferences(prefs), [prefs]);
@@ -45,8 +49,30 @@ export function App() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }
 
-  function pling() {
-    // Phase 1 : agenda vide (calendriers branchés en Phase 3).
+  /** Demande à l'IA d'estimer durée + énergie des tâches sans estimation. */
+  async function estimateWithAi() {
+    setError(null);
+    setBusy("estimate");
+    try {
+      const estimates = await estimateDurations(pending);
+      setTasks((prev) =>
+        prev.map((t) => {
+          const e = estimates.find((x) => x.taskId === t.id);
+          return e
+            ? { ...t, estimatedMinutes: e.estimatedMinutes, energy: e.energy }
+            : t;
+        }),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Planifie la journée (moteur) puis récupère les conseils IA. */
+  async function planDay() {
+    setError(null);
     const generated = scheduleDay({
       date: todayISO(),
       tasks,
@@ -55,27 +81,56 @@ export function App() {
       now: Date.now(),
     });
     setPlan(generated);
+
+    setBusy("plan");
+    try {
+      const [h1, m1] = prefs.workdayStart.split(":").map(Number);
+      const [h2, m2] = prefs.workdayEnd.split(":").map(Number);
+      const freeMinutes = (h2! * 60 + m2!) - (h1! * 60 + m1!);
+      setAdvice(await advise(pending, freeMinutes));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
     <div className="min-h-full bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       <header className="border-b border-slate-200 bg-white px-8 py-5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight">Nestr</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Ton plan d'action du jour, optimisé.
             </p>
           </div>
-          <button
-            onClick={pling}
-            disabled={pending.length === 0}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Planifier ma journée
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={estimateWithAi}
+              disabled={pending.length === 0 || busy !== null}
+              className="rounded-lg border border-indigo-300 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:opacity-40 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950"
+            >
+              {busy === "estimate" ? "Estimation…" : "Estimer (IA)"}
+            </button>
+            <button
+              onClick={planDay}
+              disabled={pending.length === 0 || busy !== null}
+              className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {busy === "plan" ? "Planification…" : "Planifier ma journée"}
+            </button>
+          </div>
         </div>
       </header>
+
+      {error && (
+        <div className="mx-auto max-w-6xl px-8 pt-4">
+          <p className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+            {error}
+          </p>
+        </div>
+      )}
 
       <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-8 py-8 lg:grid-cols-2">
         <section className="flex flex-col gap-4">
@@ -90,6 +145,18 @@ export function App() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
             Plan du jour
           </h2>
+          {advice && (
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-950/40">
+              <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+                {advice.summary}
+              </p>
+              <ul className="mt-2 list-inside list-disc text-sm text-indigo-700 dark:text-indigo-300">
+                {advice.tips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <DayTimeline plan={plan} />
         </section>
       </main>

@@ -1,0 +1,3 @@
+# Copie ce fichier en .dev.vars (gitignoré) et renseigne ta clé.
+# wrangler dev lit automatiquement .dev.vars en local.
+ANTHROPIC_API_KEY=sk-ant-...
