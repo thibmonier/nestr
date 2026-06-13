@@ -40,10 +40,14 @@ export function TaskList({
   tasks,
   onToggle,
   onRemove,
+  onBreakdown,
+  breakingId,
 }: {
   tasks: Task[];
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
+  onBreakdown: (task: Task) => void;
+  breakingId: string | null;
 }) {
   if (tasks.length === 0) {
     return (
@@ -107,6 +111,16 @@ export function TaskList({
               )}
             </div>
           </div>
+          {t.status !== "done" && (
+            <button
+              onClick={() => onBreakdown(t)}
+              disabled={breakingId !== null}
+              className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-40 dark:text-indigo-300 dark:hover:bg-indigo-950"
+              title="Découper en sous-tâches (IA)"
+            >
+              {breakingId === t.id ? "…" : "✂ Découper"}
+            </button>
+          )}
           <button
             onClick={() => onRemove(t.id)}
             className="text-slate-400 transition hover:text-red-500"

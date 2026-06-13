@@ -20,7 +20,15 @@ import {
   saveTasks,
 } from "./lib/storage.js";
 import { localDate, todayISO } from "./lib/format.js";
-import { advise, estimateDurations, type PlanAdvice } from "./lib/ai.js";
+import {
+  advise,
+  breakdownTask,
+  estimateDurations,
+  type PlanAdvice,
+  type SubtaskProposal,
+} from "./lib/ai.js";
+import { BreakdownModal } from "./components/BreakdownModal.js";
+import { newId } from "./lib/storage.js";
 import {
   connectGoogle,
   fetchDayEvents,
@@ -37,6 +45,11 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [googleOn, setGoogleOn] = useState(() => googleConnected());
   const [showSettings, setShowSettings] = useState(false);
+  const [breakingId, setBreakingId] = useState<string | null>(null);
+  const [breakdown, setBreakdown] = useState<{
+    task: Task;
+    proposals: SubtaskProposal[];
+  } | null>(null);
 
   useEffect(() => saveTasks(tasks), [tasks]);
   useEffect(() => savePreferences(prefs), [prefs]);
@@ -60,6 +73,44 @@ export function App() {
   }
   function remove(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  /** Demande à l'IA un découpage de la tâche puis ouvre la modale. */
+  async function startBreakdown(task: Task) {
+    setError(null);
+    setBreakingId(task.id);
+    try {
+      const proposals = await breakdownTask(task);
+      setBreakdown({ task, proposals });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBreakingId(null);
+    }
+  }
+
+  /** Remplace la tâche parente par les sous-tâches choisies (héritage des contraintes). */
+  function applyBreakdown(subs: SubtaskProposal[]) {
+    if (!breakdown) return;
+    const parent = breakdown.task;
+    const children: Task[] = subs.map((s) => ({
+      id: newId(),
+      title: s.title,
+      status: "todo",
+      priority: parent.priority,
+      estimatedMinutes: s.estimatedMinutes,
+      energy: s.energy,
+      dueDate: parent.dueDate,
+      allowedWeekdays: parent.allowedWeekdays,
+      context: parent.context,
+      parentId: parent.id,
+      createdAt: new Date().toISOString(),
+    }));
+    setTasks((prev) => [
+      ...prev.filter((t) => t.id !== parent.id),
+      ...children,
+    ]);
+    setBreakdown(null);
   }
 
   /** Demande à l'IA d'estimer durée + énergie des tâches sans estimation. */
@@ -223,7 +274,13 @@ export function App() {
             Tâches ({pending.length})
           </h2>
           <TaskForm onAdd={addTask} contexts={prefs.contexts} />
-          <TaskList tasks={tasks} onToggle={toggle} onRemove={remove} />
+          <TaskList
+            tasks={tasks}
+            onToggle={toggle}
+            onRemove={remove}
+            onBreakdown={startBreakdown}
+            breakingId={breakingId}
+          />
         </section>
 
         <section className="flex flex-col gap-4">
@@ -251,6 +308,15 @@ export function App() {
           prefs={prefs}
           onChange={setPrefs}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {breakdown && (
+        <BreakdownModal
+          task={breakdown.task}
+          proposals={breakdown.proposals}
+          onApply={applyBreakdown}
+          onCancel={() => setBreakdown(null)}
         />
       )}
     </div>
