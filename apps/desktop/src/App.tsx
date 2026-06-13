@@ -34,7 +34,9 @@ import { IconButton } from "./design/components/forms/IconButton.js";
 import { Icon } from "./design/components/foundation/Icon.js";
 import { AdvicePanel } from "./design/components/feedback/AdvicePanel.js";
 import { resolvedTheme, setTheme, type Theme } from "./lib/theme.js";
+import { SegmentedControl } from "./design/components/navigation/SegmentedControl.js";
 import { newId } from "./lib/storage.js";
+import nestrMark from "./design/assets/nestr-mark.png";
 import { fetchDayEvents } from "./lib/calendars.js";
 import {
   fetchMe,
@@ -68,6 +70,11 @@ export function App() {
   const [theme, setThemeState] = useState<Theme>(() => resolvedTheme());
   const [showCalendar, setShowCalendar] = useState(false);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
+  const [planScope, setPlanScope] = useState<"jour" | "semaine">("jour");
+
+  function planNow() {
+    return planScope === "semaine" ? planWeek() : planDay();
+  }
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -357,19 +364,51 @@ export function App() {
         className="px-8 py-5"
         style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-card)" }}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--text-strong)" }}>Nestr</h1>
-            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              Ton plan d'action du jour, optimisé.
-            </p>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <IconButton
+              label={showCalendar ? "Masquer le calendrier" : "Afficher le calendrier"}
+              variant="soft"
+              onClick={() => setShowCalendar((v) => !v)}
+              style={
+                showCalendar
+                  ? { background: "var(--accent-soft)", color: "var(--accent-text)" }
+                  : undefined
+              }
+            >
+              <Icon name="calendar" size={18} />
+            </IconButton>
+            <img src={nestrMark} alt="" width={36} height={36} style={{ borderRadius: "var(--radius-md)" }} />
+            <div>
+              <h1 className="text-lg font-bold tracking-tight" style={{ margin: 0, color: "var(--text-strong)" }}>Nestr</h1>
+              <p className="text-xs" style={{ margin: 0, color: "var(--text-muted)" }}>
+                {(() => {
+                  const d = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+                  return d.charAt(0).toUpperCase() + d.slice(1);
+                })()}{" "}
+                · ton plan du jour
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {!showCalendar && (
-              <IconButton label="Afficher le calendrier" variant="soft" onClick={() => setShowCalendar(true)}>
-                <Icon name="calendar" size={16} />
-              </IconButton>
-            )}
+          <div className="flex flex-wrap items-center gap-2">
+            <SegmentedControl
+              size="sm"
+              value={planScope}
+              onChange={(v) => setPlanScope(v as "jour" | "semaine")}
+              options={[
+                { value: "jour", label: "Jour" },
+                { value: "semaine", label: "Semaine" },
+              ]}
+            />
+            <Button variant="ghost" onClick={estimateWithAi} disabled={pending.length === 0 || busy !== null}>
+              {busy === "estimate" ? "Estimation…" : "Estimer (IA)"}
+            </Button>
+            <Button variant="primary" size="lg" onClick={planNow} disabled={pending.length === 0 || busy !== null}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+                <Icon name="sparkles" size={15} />
+                {busy === "plan" ? "Planification…" : planScope === "semaine" ? "Planifier ma semaine" : "Planifier ma journée"}
+              </span>
+            </Button>
             <IconButton
               label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
               variant="soft"
@@ -377,27 +416,9 @@ export function App() {
             >
               <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
             </IconButton>
-            <Button variant="secondary" onClick={() => setShowSettings(true)} disabled={busy !== null}>
-              Réglages
-            </Button>
-            {loggedIn ? (
-              <Button variant="secondary" onClick={signOut}>
-                Déconnexion
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={signIn}>
-                Se connecter (Google)
-              </Button>
-            )}
-            <Button variant="accent" onClick={estimateWithAi} disabled={pending.length === 0 || busy !== null}>
-              {busy === "estimate" ? "Estimation…" : "Estimer (IA)"}
-            </Button>
-            <Button variant="primary" size="lg" onClick={planDay} disabled={pending.length === 0 || busy !== null}>
-              {busy === "plan" ? "Planification…" : "Planifier ma journée"}
-            </Button>
-            <Button variant="accent" size="lg" onClick={planWeek} disabled={pending.length === 0 || busy !== null}>
-              Planifier ma semaine
-            </Button>
+            <IconButton label="Réglages" variant="soft" onClick={() => setShowSettings(true)} disabled={busy !== null}>
+              <Icon name="settings" size={16} />
+            </IconButton>
           </div>
         </div>
       </header>
@@ -469,6 +490,8 @@ export function App() {
           loggedIn={loggedIn}
           appleConnected={me?.appleConnected ?? false}
           onConnectApple={connectApple}
+          onSignIn={signIn}
+          onSignOut={signOut}
         />
       )}
 

@@ -33,6 +33,8 @@ export function SettingsPanel({
   loggedIn,
   appleConnected,
   onConnectApple,
+  onSignIn,
+  onSignOut,
 }: {
   prefs: PlanningPreferences;
   onChange: (p: PlanningPreferences) => void;
@@ -40,6 +42,8 @@ export function SettingsPanel({
   loggedIn: boolean;
   appleConnected: boolean;
   onConnectApple: (appleId: string, appPassword: string) => Promise<void>;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }) {
   const [newContext, setNewContext] = useState("");
   const [appleId, setAppleId] = useState("");
@@ -103,6 +107,19 @@ export function SettingsPanel({
 
   return (
     <Modal title="Réglages des disponibilités" onClose={onClose} maxWidth="48rem">
+      {/* Compte */}
+      <section style={{ marginBottom: "var(--space-6)" }}>
+        <h3 style={eyebrow}>Compte</h3>
+        {loggedIn ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+            <span style={{ fontSize: "var(--text-sm)", color: "var(--text-body)" }}>Connecté à Google.</span>
+            <Button variant="secondary" onClick={onSignOut}>Déconnexion</Button>
+          </div>
+        ) : (
+          <Button variant="primary" onClick={onSignIn}>Se connecter (Google)</Button>
+        )}
+      </section>
+
       {/* Contextes */}
       <section style={{ marginBottom: "var(--space-6)" }}>
         <h3 style={eyebrow}>Contextes</h3>
