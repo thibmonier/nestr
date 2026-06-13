@@ -1,0 +1,10 @@
+/* ============================================================
+   Nestr — Webfonts
+   SUBSTITUTION NOTE: the Nestr codebase uses system-ui (no bundled
+   font). For a consistent cross-platform specimen we load the
+   closest clean humanist sans (Plus Jakarta Sans) + a tabular mono
+   (JetBrains Mono) from Google Fonts. Swap these for licensed brand
+   files if/when they exist. See README.
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap");

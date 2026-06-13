@@ -1,5 +1,10 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { AvailabilityWindow, PlanningPreferences } from "@nestr/core";
+import { Modal } from "../design/components/feedback/Modal.js";
+import { Input } from "../design/components/forms/Input.js";
+import { Button } from "../design/components/forms/Button.js";
+import { IconButton } from "../design/components/forms/IconButton.js";
+import { Icon } from "../design/components/foundation/Icon.js";
 
 const DAYS: { idx: number; label: string }[] = [
   { idx: 1, label: "Lundi" },
@@ -10,6 +15,16 @@ const DAYS: { idx: number; label: string }[] = [
   { idx: 6, label: "Samedi" },
   { idx: 0, label: "Dimanche" },
 ];
+
+/** Eyebrow de section (libellé majuscule). */
+const eyebrow: CSSProperties = {
+  margin: "0 0 var(--space-2)",
+  fontSize: "var(--text-xs)",
+  fontWeight: "var(--fw-semibold)",
+  textTransform: "uppercase",
+  letterSpacing: "var(--tracking-wide)",
+  color: "var(--text-subtle)",
+};
 
 export function SettingsPanel({
   prefs,
@@ -87,116 +102,108 @@ export function SettingsPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
-      <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">Réglages des disponibilités</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
-          >
-            Fermer
-          </button>
-        </div>
-
-        {/* Contextes */}
-        <section className="mb-6">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Contextes
-          </h3>
-          <div className="flex flex-wrap items-center gap-2">
-            {prefs.contexts.map((c) => (
-              <span
-                key={c}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-sm text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-              >
-                {c}
-                <button
-                  onClick={() => removeContext(c)}
-                  className="text-indigo-400 hover:text-red-500"
-                  aria-label={`Supprimer ${c}`}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-            <input
-              value={newContext}
-              onChange={(e) => setNewContext(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addContext()}
-              placeholder="ajouter…"
-              className="w-28 rounded-lg border border-slate-300 bg-transparent px-3 py-1 text-sm dark:border-slate-600"
-            />
-          </div>
-        </section>
-
-        {/* Calendrier Apple */}
-        <section className="mb-6">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Calendrier Apple (iCloud)
-          </h3>
-          {!loggedIn ? (
-            <p className="text-sm text-slate-400">
-              Connecte-toi d'abord pour enregistrer tes identifiants.
-            </p>
-          ) : appleConnected ? (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
-              ✓ Connecté. Saisis de nouveaux identifiants pour les remplacer.
-            </p>
-          ) : (
-            <p className="mb-2 text-sm text-slate-400">
-              Apple ID + un mot de passe pour application (appleid.apple.com).
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap items-end gap-2">
-            <input
-              value={appleId}
-              onChange={(e) => setAppleId(e.target.value)}
-              placeholder="apple-id@email.com"
-              className="flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
-            />
-            <input
-              type="password"
-              value={applePassword}
-              onChange={(e) => setApplePassword(e.target.value)}
-              placeholder="xxxx-xxxx-xxxx-xxxx"
-              className="flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
-            />
-            <button
-              onClick={submitApple}
-              disabled={!loggedIn || appleBusy || !appleId || !applePassword}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-40"
+    <Modal title="Réglages des disponibilités" onClose={onClose} maxWidth="48rem">
+      {/* Contextes */}
+      <section style={{ marginBottom: "var(--space-6)" }}>
+        <h3 style={eyebrow}>Contextes</h3>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+          {prefs.contexts.map((c) => (
+            <span
+              key={c}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                borderRadius: "var(--radius-pill)",
+                padding: "0.25rem 0.6rem",
+                background: "var(--accent-soft)",
+                color: "var(--accent-text)",
+                fontSize: "var(--text-sm)",
+                fontWeight: "var(--fw-medium)",
+              }}
             >
-              {appleBusy ? "…" : "Enregistrer"}
-            </button>
-          </div>
-          {appleMsg && (
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              {appleMsg}
-            </p>
-          )}
-        </section>
-
-        {/* Plages par jour */}
-        <section className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Plages de disponibilité
-          </h3>
-          {DAYS.map(({ idx, label }) => (
-            <DayEditor
-              key={idx}
-              label={label}
-              contexts={prefs.contexts}
-              windows={prefs.availability[idx] ?? []}
-              onChange={(w) => setDayWindows(idx, w)}
-              onCopyToWeekdays={
-                idx >= 1 && idx <= 5 ? () => copyWeekdayToAll(idx) : undefined
-              }
-            />
+              {c}
+              <button
+                onClick={() => removeContext(c)}
+                aria-label={`Supprimer ${c}`}
+                style={{ display: "inline-flex", border: "none", background: "transparent", color: "var(--accent-text)", cursor: "pointer", padding: 0, opacity: 0.7 }}
+              >
+                <Icon name="x" size={12} />
+              </button>
+            </span>
           ))}
-        </section>
-      </div>
-    </div>
+          <Input
+            value={newContext}
+            onChange={(e) => setNewContext(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addContext()}
+            placeholder="ajouter…"
+            wrapperStyle={{ width: "8rem" }}
+          />
+        </div>
+      </section>
+
+      {/* Calendrier Apple */}
+      <section style={{ marginBottom: "var(--space-6)" }}>
+        <h3 style={eyebrow}>Calendrier Apple (iCloud)</h3>
+        {!loggedIn ? (
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>
+            Connecte-toi d'abord pour enregistrer tes identifiants.
+          </p>
+        ) : appleConnected ? (
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--tag-days-fg)" }}>
+            ✓ Connecté. Saisis de nouveaux identifiants pour les remplacer.
+          </p>
+        ) : (
+          <p style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>
+            Apple ID + un mot de passe pour application (appleid.apple.com).
+          </p>
+        )}
+        <div style={{ marginTop: "var(--space-2)", display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "var(--space-2)" }}>
+          <Input
+            value={appleId}
+            onChange={(e) => setAppleId(e.target.value)}
+            placeholder="apple-id@email.com"
+            wrapperStyle={{ flex: 1, minWidth: "12rem" }}
+          />
+          <Input
+            type="password"
+            value={applePassword}
+            onChange={(e) => setApplePassword(e.target.value)}
+            placeholder="xxxx-xxxx-xxxx-xxxx"
+            wrapperStyle={{ flex: 1, minWidth: "12rem" }}
+          />
+          <Button
+            variant="primary"
+            onClick={submitApple}
+            disabled={!loggedIn || appleBusy || !appleId || !applePassword}
+          >
+            {appleBusy ? "…" : "Enregistrer"}
+          </Button>
+        </div>
+        {appleMsg && (
+          <p style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+            {appleMsg}
+          </p>
+        )}
+      </section>
+
+      {/* Plages par jour */}
+      <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+        <h3 style={{ ...eyebrow, marginBottom: 0 }}>Plages de disponibilité</h3>
+        {DAYS.map(({ idx, label }) => (
+          <DayEditor
+            key={idx}
+            label={label}
+            contexts={prefs.contexts}
+            windows={prefs.availability[idx] ?? []}
+            onChange={(w) => setDayWindows(idx, w)}
+            onCopyToWeekdays={
+              idx >= 1 && idx <= 5 ? () => copyWeekdayToAll(idx) : undefined
+            }
+          />
+        ))}
+      </section>
+    </Modal>
   );
 }
 
@@ -225,82 +232,75 @@ function DayEditor({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-semibold">{label}</span>
-        <div className="flex gap-2 text-xs">
+    <div
+      style={{
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        padding: "var(--space-3)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-2)" }}>
+        <span style={{ fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", color: "var(--text-body)" }}>{label}</span>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
           {onCopyToWeekdays && windows.length > 0 && (
-            <button
-              onClick={onCopyToWeekdays}
-              className="text-slate-400 hover:text-indigo-500"
-            >
+            <Button variant="ghost" size="sm" onClick={onCopyToWeekdays}>
               Copier sur Lun–Ven
-            </button>
+            </Button>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() =>
-              onChange([
-                ...windows,
-                { start: "09:00", end: "12:00", contexts: [] },
-              ])
+              onChange([...windows, { start: "09:00", end: "12:00", contexts: [] }])
             }
-            className="font-medium text-indigo-600 hover:text-indigo-500"
           >
             + Plage
-          </button>
+          </Button>
         </div>
       </div>
 
       {windows.length === 0 && (
-        <p className="text-xs text-slate-400">Indisponible</p>
+        <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--text-subtle)" }}>Indisponible</p>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
         {windows.map((w, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
-            <input
-              type="time"
-              value={w.start}
-              onChange={(e) => set(i, { start: e.target.value })}
-              className="rounded border border-slate-300 bg-transparent px-2 py-1 dark:border-slate-600"
-            />
-            <span className="text-slate-400">→</span>
-            <input
-              type="time"
-              value={w.end}
-              onChange={(e) => set(i, { end: e.target.value })}
-              className="rounded border border-slate-300 bg-transparent px-2 py-1 dark:border-slate-600"
-            />
-            <div className="flex flex-wrap gap-1">
+          <div key={i} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)" }}>
+            <Input type="time" value={w.start} onChange={(e) => set(i, { start: e.target.value })} />
+            <span style={{ color: "var(--text-subtle)" }}>→</span>
+            <Input type="time" value={w.end} onChange={(e) => set(i, { end: e.target.value })} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
               {contexts.map((c) => {
                 const on = w.contexts.includes(c);
                 return (
                   <button
                     key={c}
                     onClick={() => toggleCtx(i, c)}
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium transition ${
-                      on
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300"
-                    }`}
+                    style={{
+                      border: "none",
+                      borderRadius: "var(--radius-pill)",
+                      padding: "0.15rem 0.55rem",
+                      fontSize: "var(--text-xs)",
+                      fontWeight: "var(--fw-medium)",
+                      cursor: "pointer",
+                      transition: "background var(--dur-base) var(--ease-standard)",
+                      background: on ? "var(--accent)" : "var(--surface-sunken)",
+                      color: on ? "var(--text-on-accent)" : "var(--text-muted)",
+                    }}
                   >
                     {c}
                   </button>
                 );
               })}
               {w.contexts.length === 0 && (
-                <span className="self-center text-xs text-slate-400">
+                <span style={{ alignSelf: "center", fontSize: "var(--text-xs)", color: "var(--text-subtle)" }}>
                   (tous)
                 </span>
               )}
             </div>
-            <button
-              onClick={() => onChange(windows.filter((_, j) => j !== i))}
-              className="text-slate-400 hover:text-red-500"
-              aria-label="Supprimer la plage"
-            >
-              ✕
-            </button>
+            <IconButton label="Supprimer la plage" onClick={() => onChange(windows.filter((_, j) => j !== i))}>
+              <Icon name="x" size={14} />
+            </IconButton>
           </div>
         ))}
       </div>

@@ -4,6 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nestr</title>
+    <script>
+      // Mode sombre Nestr DS : applique `.theme-dark` sur <html>.
+      // Override utilisateur (localStorage "nestr.theme") prioritaire, sinon
+      // préférence système. Inline en <head> pour éviter le flash (FOUC).
+      (function () {
+        var stored = null;
+        try { stored = localStorage.getItem("nestr.theme"); } catch (e) {}
+        var mq = window.matchMedia("(prefers-color-scheme: dark)");
+        var resolved = function () {
+          if (stored === "light" || stored === "dark") return stored;
+          return mq.matches ? "dark" : "light";
+        };
+        var apply = function () {
+          document.documentElement.classList.toggle("theme-dark", resolved() === "dark");
+        };
+        apply();
+        // Suit le système seulement tant qu'aucun override n'est fixé.
+        mq.addEventListener("change", function () {
+          if (stored !== "light" && stored !== "dark") apply();
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
