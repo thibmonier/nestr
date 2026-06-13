@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type DragEvent } from "react";
 import type { Task } from "@nestr/core";
 import { TaskRow, type TaskContext } from "../design/components/data-display/TaskRow.js";
 import { EmptyState } from "../design/components/feedback/EmptyState.js";
@@ -41,6 +41,9 @@ export function TaskList({
   onBreakdown,
   onDefer,
   onEditStart,
+  draggable,
+  onTaskDragStart,
+  onTaskDragEnd,
 }: {
   tasks: Task[];
   onToggle: (id: string) => void;
@@ -48,6 +51,9 @@ export function TaskList({
   onBreakdown: (task: Task) => void;
   onDefer: (id: string) => void;
   onEditStart: (id: string) => void;
+  draggable?: boolean;
+  onTaskDragStart?: (id: string, e: DragEvent<HTMLLIElement>) => void;
+  onTaskDragEnd?: () => void;
 }) {
   const [filter, setFilter] = useState<"tous" | "pro" | "perso">("tous");
   const [query, setQuery] = useState("");
@@ -104,6 +110,9 @@ export function TaskList({
               <TaskRow
                 key={t.id}
                 title={t.title}
+                draggable={draggable && t.status !== "done"}
+                onDragStart={(e) => onTaskDragStart?.(t.id, e)}
+                onDragEnd={() => onTaskDragEnd?.()}
                 done={t.status === "done"}
                 priority={t.priority}
                 estimatedMin={t.estimatedMinutes}

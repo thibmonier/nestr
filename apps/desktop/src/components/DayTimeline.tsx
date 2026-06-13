@@ -1,3 +1,4 @@
+import { useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import type { DailyPlan, TimeBlock } from "@nestr/core";
 import { hhmm, todayISO } from "../lib/format.js";
 import { EmptyState } from "../design/components/feedback/EmptyState.js";
@@ -25,11 +26,18 @@ function durLabel(min: number): string {
 export function DayTimeline({
   plan,
   hideUnscheduled,
+  dragging,
+  onSchedule,
 }: {
   plan: DailyPlan | null;
   hideUnscheduled?: boolean;
+  /** Un glisser de tâche est en cours → la timeline devient zone de dépôt. */
+  dragging?: boolean;
+  /** Dépôt à `startMin` (minutes locales) sur la timeline. */
+  onSchedule?: (startMin: number) => void;
 }) {
-  if (!plan) {
+  // Sans plan et sans glisser en cours : invite à planifier.
+  if (!plan && !dragging) {
     return (
       <EmptyState style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
         Clique sur « Planifier ma journée » pour générer ton emploi du temps
@@ -38,8 +46,8 @@ export function DayTimeline({
     );
   }
 
-  const allDay = plan.blocks.filter((b) => b.allDay);
-  const timed = plan.blocks
+  const allDay = (plan?.blocks ?? []).filter((b) => b.allDay);
+  const timed = (plan?.blocks ?? [])
     .filter((b) => !b.allDay)
     .map((b) => ({ ...b, startMin: minOfDay(b.start), endMin: minOfDay(b.end) }))
     .sort((a, b) => a.startMin - b.startMin);
@@ -50,15 +58,20 @@ export function DayTimeline({
         <AllDayBanner key={`ad-${i}`} block={b} />
       ))}
 
-      {timed.length === 0 ? (
-        plan.blocks.length === 0 && (
+      {timed.length === 0 && !dragging ? (
+        (plan?.blocks.length ?? 0) === 0 && (
           <p style={{ fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>Journée vide.</p>
         )
       ) : (
-        <ProportionalTimeline date={plan.date} blocks={timed} />
+        <ProportionalTimeline
+          date={plan?.date ?? todayISO()}
+          blocks={timed}
+          dragging={dragging}
+          onSchedule={onSchedule}
+        />
       )}
 
-      {!hideUnscheduled && plan.unscheduled.length > 0 && (
+      {!hideUnscheduled && (plan?.unscheduled.length ?? 0) > 0 && (
         <div
           style={{
             background: "var(--warn-bg)",
@@ -68,10 +81,10 @@ export function DayTimeline({
           }}
         >
           <p style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", color: "var(--warn-fg)" }}>
-            Non planifié ({plan.unscheduled.length})
+            Non planifié ({plan?.unscheduled.length})
           </p>
           <ul style={{ margin: 0, paddingLeft: "1.1rem", listStyle: "disc", fontSize: "var(--text-sm)", color: "var(--warn-fg)" }}>
-            {plan.unscheduled.map((u) => (
+            {(plan?.unscheduled ?? []).map((u) => (
               <li key={u.task.id}>
                 {u.task.title}
                 <span style={{ opacity: 0.8 }}>
@@ -116,10 +129,23 @@ function AllDayBanner({ block }: { block: TimeBlock }) {
 
 type TimedBlock = TimeBlock & { startMin: number; endMin: number };
 
-function ProportionalTimeline({ date, blocks }: { date: string; blocks: TimedBlock[] }) {
-  const firstStart = Math.min(...blocks.map((b) => b.startMin));
-  const lastEnd = Math.max(...blocks.map((b) => b.endMin));
-  // Plage = bornes des blocs arrondies à l'heure, marge d'une demi-heure.
+function ProportionalTimeline({
+  date,
+  blocks,
+  dragging,
+  onSchedule,
+}: {
+  date: string;
+  blocks: TimedBlock[];
+  dragging?: boolean;
+  onSchedule?: (startMin: number) => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hoverMin, setHoverMin] = useState<number | null>(null);
+
+  // Plage = bornes des blocs (marge 30 min), défaut 08:00–19:00 si vide.
+  const firstStart = blocks.length ? Math.min(...blocks.map((b) => b.startMin)) : 8 * 60;
+  const lastEnd = blocks.length ? Math.max(...blocks.map((b) => b.endMin)) : 19 * 60;
   const dayStart = Math.max(0, Math.floor((firstStart - 30) / 60) * 60);
   const dayEnd = Math.min(24 * 60, Math.ceil((lastEnd + 30) / 60) * 60);
   const height = (dayEnd - dayStart) * PX_PER_MIN;
@@ -132,8 +158,28 @@ function ProportionalTimeline({ date, blocks }: { date: string; blocks: TimedBlo
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const showNow = isToday && nowMin >= dayStart && nowMin <= dayEnd;
 
+  function minFromEvent(e: ReactDragEvent): number {
+    const rect = wrapRef.current!.getBoundingClientRect();
+    let min = dayStart + (e.clientY - rect.top) / PX_PER_MIN;
+    min = Math.round(min / 15) * 15; // snap 15 min
+    return Math.max(dayStart, Math.min(dayEnd - 15, min));
+  }
+
   return (
-    <div style={{ position: "relative", height, marginTop: "var(--space-2)" }}>
+    <div
+      ref={wrapRef}
+      onDragOver={dragging ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setHoverMin(minFromEvent(e)); } : undefined}
+      onDragLeave={dragging ? () => setHoverMin(null) : undefined}
+      onDrop={dragging ? (e) => { e.preventDefault(); const m = minFromEvent(e); setHoverMin(null); onSchedule?.(m); } : undefined}
+      style={{
+        position: "relative",
+        height,
+        marginTop: "var(--space-2)",
+        outline: dragging ? "2px dashed var(--indigo-300)" : "none",
+        outlineOffset: 6,
+        borderRadius: "var(--radius-md)",
+      }}
+    >
       {/* grille horaire */}
       {hours.map((h) => (
         <div
@@ -152,6 +198,16 @@ function ProportionalTimeline({ date, blocks }: { date: string; blocks: TimedBlo
         <div style={{ position: "absolute", top: (nowMin - dayStart) * PX_PER_MIN, left: GUTTER - 12, right: 0, zIndex: 5, display: "flex", alignItems: "center", gap: "0.4rem", pointerEvents: "none" }}>
           <span style={{ width: 8, height: 8, borderRadius: "var(--radius-pill)", background: "var(--danger)", marginLeft: -4 }} />
           <div style={{ flex: 1, borderTop: "2px solid var(--danger)" }} />
+        </div>
+      )}
+
+      {/* indicateur de dépôt pendant le glisser */}
+      {dragging && hoverMin != null && (
+        <div style={{ position: "absolute", top: (hoverMin - dayStart) * PX_PER_MIN, left: GUTTER, right: 0, zIndex: 8, display: "flex", alignItems: "center", gap: "0.4rem", pointerEvents: "none" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", fontWeight: "var(--fw-semibold)", color: "var(--text-on-accent)", background: "var(--accent)", borderRadius: "var(--radius-sm)", padding: "0.05rem 0.35rem", marginLeft: "-2.7rem" }}>
+            {fmtMin(hoverMin)}
+          </span>
+          <div style={{ flex: 1, borderTop: "2px solid var(--accent)" }} />
         </div>
       )}
 

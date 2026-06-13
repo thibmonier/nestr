@@ -67,6 +67,7 @@ export function App() {
   const [taskModal, setTaskModal] = useState<{ task: Task | null } | null>(null);
   const [theme, setThemeState] = useState<Theme>(() => resolvedTheme());
   const [showCalendar, setShowCalendar] = useState(false);
+  const [dragTaskId, setDragTaskId] = useState<string | null>(null);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -160,6 +161,37 @@ export function App() {
   }
   function remove(id: string) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  /** Place manuellement la tâche glissée à `startMin` sur la timeline du jour
+   *  (override d'affichage, sans relancer le moteur). */
+  function scheduleManually(startMin: number) {
+    const id = dragTaskId;
+    setDragTaskId(null);
+    if (!id) return;
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return;
+    const dur = task.estimatedMinutes ?? prefs.defaultTaskMinutes;
+    const date = plan?.date ?? todayISO();
+    const startD = new Date(`${date}T00:00:00`);
+    startD.setMinutes(startMin);
+    const endD = new Date(startD.getTime() + dur * 60_000);
+    const block = {
+      start: startD.toISOString(),
+      end: endD.toISOString(),
+      kind: "task" as const,
+      title: task.title,
+      taskId: id,
+    };
+    setWeekPlan(null);
+    setPlan((prev) => {
+      const base = prev ?? { date, blocks: [], unscheduled: [], availableMinutes: 0 };
+      return {
+        ...base,
+        blocks: [...base.blocks.filter((b) => b.taskId !== id), block],
+        unscheduled: base.unscheduled.filter((u) => u.task.id !== id),
+      };
+    });
   }
 
   /** Reporte/dépriorise une tâche : échéance repoussée à demain. */
@@ -406,6 +438,13 @@ export function App() {
               const t = tasks.find((x) => x.id === id);
               if (t) setTaskModal({ task: t });
             }}
+            draggable
+            onTaskDragStart={(id, e) => {
+              e.dataTransfer.setData("text/plain", id);
+              e.dataTransfer.effectAllowed = "move";
+              setDragTaskId(id);
+            }}
+            onTaskDragEnd={() => setDragTaskId(null)}
           />
         </section>
 
@@ -414,7 +453,11 @@ export function App() {
             {weekPlan ? "Plan de la semaine" : "Plan du jour"}
           </h2>
           {advice && <AdvicePanel summary={advice.summary} tips={advice.tips} />}
-          {weekPlan ? <WeekView week={weekPlan} /> : <DayTimeline plan={plan} />}
+          {weekPlan ? (
+            <WeekView week={weekPlan} />
+          ) : (
+            <DayTimeline plan={plan} dragging={!!dragTaskId} onSchedule={scheduleManually} />
+          )}
         </section>
       </main>
 
