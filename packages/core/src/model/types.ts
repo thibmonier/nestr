@@ -51,6 +51,7 @@ export interface TimeBlock {
   title: string;
   taskId?: string;
   eventId?: string;
+  allDay?: boolean;
 }
 
 /** Résultat de la planification d'une journée. */

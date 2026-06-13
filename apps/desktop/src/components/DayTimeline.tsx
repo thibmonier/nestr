@@ -27,7 +27,7 @@ export function DayTimeline({ plan }: { plan: DailyPlan | null }) {
             }`}
           >
             <div className="w-28 shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400">
-              {hhmm(b.start)} – {hhmm(b.end)}
+              {b.allDay ? "Toute la journée" : `${hhmm(b.start)} – ${hhmm(b.end)}`}
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100">

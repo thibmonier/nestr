@@ -144,6 +144,7 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       kind: "event",
       title: e.title,
       eventId: e.id,
+      allDay: e.allDay,
     });
   }
 
