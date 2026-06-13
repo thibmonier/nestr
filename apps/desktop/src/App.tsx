@@ -8,7 +8,7 @@ import {
   type Task,
   type WeekPlan,
 } from "@nestr/core";
-import { TaskForm } from "./components/TaskForm.js";
+import { TaskModal } from "./components/TaskModal.js";
 import { TaskList } from "./components/TaskList.js";
 import { DayTimeline } from "./components/DayTimeline.js";
 import { WeekView } from "./components/WeekView.js";
@@ -62,7 +62,8 @@ export function App() {
   const [me, setMe] = useState<MeStatus | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [breakingId, setBreakingId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // null = fermée ; { task: null } = création ; { task } = édition.
+  const [taskModal, setTaskModal] = useState<{ task: Task | null } | null>(null);
   const [theme, setThemeState] = useState<Theme>(() => resolvedTheme());
 
   function toggleTheme() {
@@ -131,8 +132,20 @@ export function App() {
     [tasks],
   );
 
-  function addTask(task: Task) {
-    setTasks((prev) => [...prev, task]);
+  /** Tags existants (autocomplétion de la modale). */
+  const allTags = useMemo(
+    () => [...new Set(tasks.flatMap((t) => t.tags ?? []))].sort(),
+    [tasks],
+  );
+
+  /** Crée (si nouvel id) ou met à jour une tâche depuis la modale. */
+  function saveTask(task: Task) {
+    setTasks((prev) =>
+      prev.some((t) => t.id === task.id)
+        ? prev.map((t) => (t.id === task.id ? task : t))
+        : [...prev, task],
+    );
+    setTaskModal(null);
   }
   function toggle(id: string) {
     setTasks((prev) =>
@@ -153,12 +166,6 @@ export function App() {
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, dueDate: tomorrow } : t)),
     );
-  }
-
-  /** Renomme une tâche (édition inline interim, avant la modale d'édition). */
-  function rename(id: string, title: string) {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
-    setEditingId(null);
   }
 
   /** Demande à l'IA un découpage de la tâche puis ouvre la modale. */
@@ -372,20 +379,24 @@ export function App() {
 
       <main className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-8 py-8 lg:grid-cols-2">
         <section className="flex flex-col gap-4">
-          <h2 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>
-            Tâches ({pending.length})
-          </h2>
-          <TaskForm onAdd={addTask} contexts={prefs.contexts} />
+          <div className="flex items-center justify-between gap-2">
+            <h2 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>
+              Tâches ({pending.length})
+            </h2>
+            <Button variant="primary" onClick={() => setTaskModal({ task: null })}>
+              + Nouvelle tâche
+            </Button>
+          </div>
           <TaskList
             tasks={tasks}
-            editingId={editingId}
             onToggle={toggle}
             onRemove={remove}
             onBreakdown={startBreakdown}
             onDefer={defer}
-            onEditStart={(id) => setEditingId(id)}
-            onRename={rename}
-            onEditCancel={() => setEditingId(null)}
+            onEditStart={(id) => {
+              const t = tasks.find((x) => x.id === id);
+              if (t) setTaskModal({ task: t });
+            }}
           />
         </section>
 
@@ -415,6 +426,16 @@ export function App() {
           proposals={breakdown.proposals}
           onApply={applyBreakdown}
           onCancel={() => setBreakdown(null)}
+        />
+      )}
+
+      {taskModal && (
+        <TaskModal
+          task={taskModal.task}
+          contexts={prefs.contexts}
+          allTags={allTags}
+          onSave={saveTask}
+          onClose={() => setTaskModal(null)}
         />
       )}
     </div>
