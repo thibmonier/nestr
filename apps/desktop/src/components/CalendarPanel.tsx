@@ -8,12 +8,20 @@ import { IconButton } from "../design/components/forms/IconButton.js";
 const WD = ["L", "M", "M", "J", "V", "S", "D"];
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** Volet latéral repliable : mini-calendrier navigable + agenda du jour sélectionné. */
-export function CalendarPanel({ onClose }: { onClose: () => void }) {
-  const now = new Date();
-  const [viewYear, setViewYear] = useState(now.getFullYear());
-  const [viewMonth, setViewMonth] = useState(now.getMonth());
-  const [selectedISO, setSelectedISO] = useState(todayISO());
+/** Volet latéral repliable : mini-calendrier navigable + agenda du jour sélectionné.
+ *  `selectedDate` est piloté par le parent (sync avec la vue principale). */
+export function CalendarPanel({
+  selectedDate,
+  onSelectDate,
+  onClose,
+}: {
+  selectedDate: string;
+  onSelectDate: (iso: string) => void;
+  onClose: () => void;
+}) {
+  const selectedISO = selectedDate;
+  const [viewYear, setViewYear] = useState(() => Number(selectedISO.slice(0, 4)));
+  const [viewMonth, setViewMonth] = useState(() => Number(selectedISO.slice(5, 7)) - 1);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -104,7 +112,7 @@ export function CalendarPanel({ onClose }: { onClose: () => void }) {
             return (
               <button
                 key={i}
-                onClick={() => setSelectedISO(iso)}
+                onClick={() => onSelectDate(iso)}
                 aria-label={iso}
                 style={{
                   aspectRatio: "1",

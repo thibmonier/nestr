@@ -71,9 +71,17 @@ export function App() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [planScope, setPlanScope] = useState<"jour" | "semaine">("jour");
+  const [selectedDate, setSelectedDate] = useState(todayISO());
 
   function planNow() {
     return planScope === "semaine" ? planWeek() : planDay();
+  }
+
+  /** Clic sur un jour du calendrier : sync la vue principale (planifie ce jour). */
+  function selectDay(iso: string) {
+    setSelectedDate(iso);
+    setPlanScope("jour");
+    void planDay(iso, false);
   }
 
   function toggleTheme() {
@@ -290,12 +298,13 @@ export function App() {
     setMe((m) => (m ? { ...m, appleConnected: true } : m));
   }
 
-  /** Récupère les événements du jour, planifie (moteur) puis conseils IA. */
-  async function planDay() {
+  /** Récupère les événements du jour, planifie (moteur) puis conseils IA.
+   *  `date` = jour à planifier (défaut : jour sélectionné). `withAdvice` permet
+   *  de sauter l'appel IA lors d'une simple navigation de calendrier. */
+  async function planDay(date: string = selectedDate, withAdvice = true) {
     setError(null);
     setBusy("plan");
     try {
-      const date = todayISO();
       const start = new Date(`${date}T00:00:00`).toISOString();
       const end = new Date(`${date}T23:59:59`).toISOString();
       const events = await fetchDayEvents(start, end);
@@ -310,7 +319,9 @@ export function App() {
       setWeekPlan(null);
       setPlan(generated);
 
-      setAdvice(await advise(pending, Math.round(generated.availableMinutes)));
+      if (withAdvice) {
+        setAdvice(await advise(pending, Math.round(generated.availableMinutes)));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -323,7 +334,7 @@ export function App() {
     setError(null);
     setBusy("plan");
     try {
-      const start = todayISO();
+      const start = selectedDate;
       const DAYS = 7;
       const rangeStart = new Date(`${start}T00:00:00`).toISOString();
       const lastDay = addDays(start, DAYS - 1);
@@ -358,7 +369,13 @@ export function App() {
 
   return (
     <div className="flex min-h-full" style={{ background: "var(--bg-app)", color: "var(--text-body)" }}>
-      {showCalendar && <CalendarPanel onClose={() => setShowCalendar(false)} />}
+      {showCalendar && (
+        <CalendarPanel
+          selectedDate={selectedDate}
+          onSelectDate={selectDay}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
       <div className="min-w-0 flex-1">
       <header
         className="px-8 py-5"
@@ -383,10 +400,10 @@ export function App() {
               <h1 className="text-lg font-bold tracking-tight" style={{ margin: 0, color: "var(--text-strong)" }}>Nestr</h1>
               <p className="text-xs" style={{ margin: 0, color: "var(--text-muted)" }}>
                 {(() => {
-                  const d = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+                  const d = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
                   return d.charAt(0).toUpperCase() + d.slice(1);
                 })()}{" "}
-                · ton plan du jour
+                · {selectedDate === todayISO() ? "ton plan du jour" : "plan de ce jour"}
               </p>
             </div>
           </div>
