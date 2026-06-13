@@ -10,6 +10,7 @@ import {
 } from "@nestr/core";
 import { TaskModal } from "./components/TaskModal.js";
 import { TaskList } from "./components/TaskList.js";
+import { CalendarPanel } from "./components/CalendarPanel.js";
 import { DayTimeline } from "./components/DayTimeline.js";
 import { WeekView } from "./components/WeekView.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
@@ -65,6 +66,7 @@ export function App() {
   // null = fermée ; { task: null } = création ; { task } = édition.
   const [taskModal, setTaskModal] = useState<{ task: Task | null } | null>(null);
   const [theme, setThemeState] = useState<Theme>(() => resolvedTheme());
+  const [showCalendar, setShowCalendar] = useState(false);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -316,7 +318,9 @@ export function App() {
   }
 
   return (
-    <div className="min-h-full" style={{ background: "var(--bg-app)", color: "var(--text-body)" }}>
+    <div className="flex min-h-full" style={{ background: "var(--bg-app)", color: "var(--text-body)" }}>
+      {showCalendar && <CalendarPanel onClose={() => setShowCalendar(false)} />}
+      <div className="min-w-0 flex-1">
       <header
         className="px-8 py-5"
         style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-card)" }}
@@ -329,6 +333,11 @@ export function App() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {!showCalendar && (
+              <IconButton label="Afficher le calendrier" variant="soft" onClick={() => setShowCalendar(true)}>
+                <Icon name="calendar" size={16} />
+              </IconButton>
+            )}
             <IconButton
               label={theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre"}
               variant="soft"
@@ -438,6 +447,7 @@ export function App() {
           onClose={() => setTaskModal(null)}
         />
       )}
+      </div>
     </div>
   );
 }
