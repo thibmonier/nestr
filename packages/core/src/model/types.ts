@@ -38,6 +38,8 @@ export interface CalendarEvent {
   id: string;
   source: CalendarSource;
   calendarId: string;
+  /** Nom lisible du calendrier d'origine (ex. "Perso", "Work"). */
+  calendarName?: string;
   title: string;
   /** Début/fin au format ISO datetime. */
   start: string;
@@ -58,6 +60,9 @@ export interface TimeBlock {
   taskId?: string;
   eventId?: string;
   allDay?: boolean;
+  /** Pour les blocs d'agenda : source et nom du calendrier d'origine. */
+  source?: CalendarSource;
+  calendarName?: string;
 }
 
 /** Pourquoi une tâche n'a pas été placée dans le plan du jour. */

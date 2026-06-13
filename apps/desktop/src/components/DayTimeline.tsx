@@ -33,9 +33,28 @@ export function DayTimeline({ plan }: { plan: DailyPlan | null }) {
               <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
                 {b.title}
               </p>
-              <span className="text-xs text-slate-400">
-                {b.kind === "event" ? "Agenda" : "Tâche"}
-              </span>
+              {b.kind === "event" ? (
+                <span className="mt-0.5 inline-flex items-center gap-1.5 text-xs">
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-medium ${
+                      b.source === "google"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                        : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                    }`}
+                  >
+                    {b.source === "google"
+                      ? "Google"
+                      : b.source === "apple"
+                        ? "Apple"
+                        : "Agenda"}
+                  </span>
+                  {b.calendarName && (
+                    <span className="text-slate-400">{b.calendarName}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">Tâche</span>
+              )}
             </div>
           </div>
         ))}

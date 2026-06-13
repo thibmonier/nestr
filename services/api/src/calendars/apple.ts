@@ -69,8 +69,22 @@ function responses(xml: string): string[] {
   return xml.match(/<[\w-]*:?response[^>]*>[\s\S]*?<\/[\w-]*:?response>/gi) ?? [];
 }
 
+interface CalendarRef {
+  url: string;
+  name?: string;
+}
+
+/** Extrait le displayname d'un bloc de réponse. */
+function displayName(block: string): string | undefined {
+  return (
+    /<[\w-]*:?displayname[^>]*>\s*([^<]+?)\s*<\/[\w-]*:?displayname>/i.exec(
+      block,
+    )?.[1] ?? undefined
+  );
+}
+
 /** Découvre les collections de calendriers supportant les VEVENT. */
-async function discoverCalendars(auth: string): Promise<string[]> {
+async function discoverCalendars(auth: string): Promise<CalendarRef[]> {
   const principalXml = await propfind(HOST + "/", auth, "0", PROP_PRINCIPAL);
   const principal = firstHref(block(principalXml, "current-user-principal"));
   if (!principal) throw new Error("CalDAV : principal introuvable");
@@ -80,12 +94,14 @@ async function discoverCalendars(auth: string): Promise<string[]> {
   if (!home) throw new Error("CalDAV : calendar-home introuvable");
 
   const listXml = await propfind(absolute(home), auth, "1", PROP_CALENDARS);
-  const calendars: string[] = [];
+  const calendars: CalendarRef[] = [];
   for (const block of responses(listXml)) {
     const isCalendar = /<[\w-]*:?calendar\b/i.test(block);
     const hasVevent = /VEVENT/i.test(block);
     const href = firstHref(block);
-    if (isCalendar && hasVevent && href) calendars.push(absolute(href));
+    if (isCalendar && hasVevent && href) {
+      calendars.push({ url: absolute(href), name: displayName(block) });
+    }
   }
   return calendars;
 }
@@ -102,11 +118,12 @@ function unescapeXml(s: string): string {
 
 /** Interroge un calendrier sur une plage et renvoie les événements. */
 async function queryCalendar(
-  calUrl: string,
+  cal: CalendarRef,
   auth: string,
   startISO: string,
   endISO: string,
 ): Promise<CalendarEvent[]> {
+  const calUrl = cal.url;
   const fmt = (iso: string) =>
     iso.replace(/[-:]/g, "").replace(/\.\d+/, "").replace(/Z?$/, "Z");
 
@@ -138,7 +155,9 @@ async function queryCalendar(
     /<[\w-]*:?calendar-data[^>]*>([\s\S]*?)<\/[\w-]*:?calendar-data>/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml))) {
-    events.push(...parseICal(unescapeXml(m[1]!), "apple", calUrl));
+    for (const ev of parseICal(unescapeXml(m[1]!), "apple", calUrl)) {
+      events.push({ ...ev, calendarName: cal.name });
+    }
   }
   return events;
 }

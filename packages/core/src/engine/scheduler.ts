@@ -159,6 +159,8 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       title: e.title,
       eventId: e.id,
       allDay: e.allDay,
+      source: e.source,
+      calendarName: e.calendarName,
     });
   }
 
