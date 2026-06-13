@@ -100,9 +100,17 @@ app.post("/ai/advise", async (c) => {
 });
 
 // --- Auth Google (login + connexion calendrier en une fois) ---
-app.get("/auth/google", (c) =>
-  c.redirect(googleAuthUrl(googleConfig(c.env), "nestr")),
-);
+
+/** Seules les URL loopback sont acceptées comme cible de retour (anti open-redirect). */
+const LOOPBACK_RE = /^http:\/\/(localhost|127\.0\.0\.1):\d+\/?$/;
+
+app.get("/auth/google", (c) => {
+  // En Tauri : l'app passe un serveur loopback comme cible de retour. On le
+  // transporte dans le `state` OAuth (round-trip jusqu'au callback).
+  const appRedirect = c.req.query("app_redirect");
+  const state = appRedirect && LOOPBACK_RE.test(appRedirect) ? appRedirect : "nestr";
+  return c.redirect(googleAuthUrl(googleConfig(c.env), state));
+});
 
 app.get("/auth/google/callback", async (c) => {
   const code = c.req.query("code");
@@ -132,6 +140,16 @@ app.get("/auth/google/callback", async (c) => {
     );
   }
   const session = await createSession(c.env.DB, user.id);
+
+  // Flux Tauri (loopback) : le `state` est l'URL du serveur localhost de l'app.
+  // On y renvoie le token en query plutôt que par postMessage.
+  const state = c.req.query("state") ?? "";
+  if (LOOPBACK_RE.test(state)) {
+    const target = new URL(state);
+    target.searchParams.set("token", session);
+    if (user.email) target.searchParams.set("email", user.email);
+    return c.redirect(target.toString());
+  }
 
   const payload = JSON.stringify({
     type: "nestr-auth",
