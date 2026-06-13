@@ -87,6 +87,11 @@ export function TaskList({
                   {durationLabel(t.estimatedMinutes)}
                 </span>
               )}
+              {t.context && (
+                <span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                  {t.context}
+                </span>
+              )}
               {t.energy && (
                 <span className="text-slate-400">énergie {t.energy}</span>
               )}

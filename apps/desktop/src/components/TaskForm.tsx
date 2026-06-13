@@ -17,13 +17,20 @@ const DAY_PRESETS: Record<string, number[] | undefined> = {
   weekend: [0, 6],
 };
 
-export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
+export function TaskForm({
+  onAdd,
+  contexts,
+}: {
+  onAdd: (task: Task) => void;
+  contexts: string[];
+}) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [minutes, setMinutes] = useState("");
   const [energy, setEnergy] = useState<Energy | "">("");
   const [dueDate, setDueDate] = useState("");
   const [days, setDays] = useState<keyof typeof DAY_PRESETS>("all");
+  const [context, setContext] = useState("");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +46,7 @@ export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
       createdAt: new Date().toISOString(),
       dueDate: dueDate ? new Date(`${dueDate}T23:59:59`).toISOString() : undefined,
       allowedWeekdays: DAY_PRESETS[days],
+      context: context || undefined,
     });
     setTitle("");
     setMinutes("");
@@ -46,6 +54,7 @@ export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
     setPriority("medium");
     setDueDate("");
     setDays("all");
+    setContext("");
   }
 
   return (
@@ -110,6 +119,24 @@ export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
           <option value="low">Faible</option>
           <option value="medium">Moyenne</option>
           <option value="high">Forte</option>
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          Contexte
+        </span>
+        <select
+          value={context}
+          onChange={(e) => setContext(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
+        >
+          <option value="">—</option>
+          {contexts.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
       </label>
 

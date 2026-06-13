@@ -27,6 +27,12 @@ export interface Task {
    * que ces jours-là (ex. appel possible uniquement du lundi au vendredi → [1,2,3,4,5]).
    */
   allowedWeekdays?: number[];
+  /**
+   * Contexte de la tâche (ex. "pro", "perso", ou un contexte personnalisé).
+   * La tâche n'est placée que dans une fenêtre de disponibilité qui accepte
+   * ce contexte. Absent = tâche flexible, placée dans n'importe quelle fenêtre.
+   */
+  context?: string;
   /** id de la tâche parente si c'est une sous-tâche issue d'un découpage. */
   parentId?: string;
   tags?: string[];
@@ -65,8 +71,13 @@ export interface TimeBlock {
   calendarName?: string;
 }
 
-/** Pourquoi une tâche n'a pas été placée dans le plan du jour. */
-export type UnscheduledReason = "no_time" | "wrong_day";
+/**
+ * Pourquoi une tâche n'a pas été placée :
+ * - no_time : des fenêtres acceptent son contexte mais sont pleines
+ * - wrong_day : jour de semaine non autorisé (allowedWeekdays)
+ * - no_window : aucune fenêtre du jour n'accepte son contexte
+ */
+export type UnscheduledReason = "no_time" | "wrong_day" | "no_window";
 
 export interface UnscheduledTask {
   task: Task;
@@ -78,16 +89,34 @@ export interface DailyPlan {
   /** Jour planifié, format ISO date (YYYY-MM-DD). */
   date: string;
   blocks: TimeBlock[];
-  /** Tâches non placées (manque de temps ou jour non autorisé). */
+  /** Tâches non placées (manque de temps, jour ou contexte non disponible). */
   unscheduled: UnscheduledTask[];
+  /** Minutes libres disponibles ce jour (fenêtres moins événements occupés). */
+  availableMinutes: number;
 }
+
+/**
+ * Fenêtre de disponibilité quotidienne. `contexts` = contextes de tâches
+ * acceptés ; vide = accepte tout. Les trous entre fenêtres (déjeuner, etc.)
+ * sont indisponibles.
+ */
+export interface AvailabilityWindow {
+  /** "HH:MM" locale. */
+  start: string;
+  /** "HH:MM" locale. */
+  end: string;
+  contexts: string[];
+}
+
+/** Disponibilités de la semaine, indexées par jour JS (0=dimanche … 6=samedi). */
+export type WeeklyAvailability = AvailabilityWindow[][];
 
 /** Préférences de planification de l'utilisateur. */
 export interface PlanningPreferences {
-  /** Heure de début de journée de travail, "HH:MM" (locale). */
-  workdayStart: string;
-  /** Heure de fin, "HH:MM". */
-  workdayEnd: string;
+  /** Contextes de tâches disponibles (ex. ["pro", "perso", "famille"]). */
+  contexts: string[];
+  /** Fenêtres de disponibilité par jour de semaine. */
+  availability: WeeklyAvailability;
   /** Minutes de pause insérées entre deux tâches consécutives. */
   breakBetweenTasksMin: number;
   /** Durée par défaut si une tâche n'a pas d'estimation, en minutes. */
@@ -96,9 +125,32 @@ export interface PlanningPreferences {
   highEnergyWindow: { start: string; end: string };
 }
 
+const WEEKDAY_WINDOWS: AvailabilityWindow[] = [
+  { start: "08:00", end: "09:00", contexts: ["perso"] },
+  { start: "09:00", end: "12:30", contexts: ["pro"] },
+  { start: "14:00", end: "18:30", contexts: ["pro"] },
+  { start: "18:30", end: "22:00", contexts: ["perso"] },
+];
+
+const WEEKEND_WINDOWS: AvailabilityWindow[] = [
+  { start: "09:00", end: "12:30", contexts: ["perso"] },
+  { start: "14:00", end: "19:00", contexts: ["perso"] },
+];
+
+/** availability[jour] — 0=dimanche, 1-5=lun-ven, 6=samedi. */
+const DEFAULT_AVAILABILITY: WeeklyAvailability = [
+  WEEKEND_WINDOWS, // dimanche
+  WEEKDAY_WINDOWS,
+  WEEKDAY_WINDOWS,
+  WEEKDAY_WINDOWS,
+  WEEKDAY_WINDOWS,
+  WEEKDAY_WINDOWS,
+  WEEKEND_WINDOWS, // samedi
+];
+
 export const DEFAULT_PREFERENCES: PlanningPreferences = {
-  workdayStart: "09:00",
-  workdayEnd: "18:00",
+  contexts: ["pro", "perso"],
+  availability: DEFAULT_AVAILABILITY,
   breakBetweenTasksMin: 10,
   defaultTaskMinutes: 30,
   highEnergyWindow: { start: "09:00", end: "12:00" },

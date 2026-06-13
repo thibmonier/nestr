@@ -8,6 +8,7 @@ import {
 import { TaskForm } from "./components/TaskForm.js";
 import { TaskList } from "./components/TaskList.js";
 import { DayTimeline } from "./components/DayTimeline.js";
+import { SettingsPanel } from "./components/SettingsPanel.js";
 import {
   loadPreferences,
   loadTasks,
@@ -24,12 +25,13 @@ import {
 
 export function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
-  const [prefs] = useState<PlanningPreferences>(() => loadPreferences());
+  const [prefs, setPrefs] = useState<PlanningPreferences>(() => loadPreferences());
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [advice, setAdvice] = useState<PlanAdvice | null>(null);
   const [busy, setBusy] = useState<null | "estimate" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
   const [googleOn, setGoogleOn] = useState(() => googleConnected());
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => saveTasks(tasks), [tasks]);
   useEffect(() => savePreferences(prefs), [prefs]);
@@ -105,20 +107,7 @@ export function App() {
       });
       setPlan(generated);
 
-      const [h1, m1] = prefs.workdayStart.split(":").map(Number);
-      const [h2, m2] = prefs.workdayEnd.split(":").map(Number);
-      const busyMin = events
-        .filter((e) => e.busy && !e.allDay)
-        .reduce(
-          (sum, e) =>
-            sum + (new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000,
-          0,
-        );
-      const freeMinutes = Math.max(
-        0,
-        h2! * 60 + m2! - (h1! * 60 + m1!) - busyMin,
-      );
-      setAdvice(await advise(pending, freeMinutes));
+      setAdvice(await advise(pending, Math.round(generated.availableMinutes)));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -137,6 +126,13 @@ export function App() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSettings(true)}
+              disabled={busy !== null}
+              className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Réglages
+            </button>
             <button
               onClick={linkGoogle}
               disabled={busy !== null}
@@ -175,7 +171,7 @@ export function App() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
             Tâches ({pending.length})
           </h2>
-          <TaskForm onAdd={addTask} />
+          <TaskForm onAdd={addTask} contexts={prefs.contexts} />
           <TaskList tasks={tasks} onToggle={toggle} onRemove={remove} />
         </section>
 
@@ -198,6 +194,14 @@ export function App() {
           <DayTimeline plan={plan} />
         </section>
       </main>
+
+      {showSettings && (
+        <SettingsPanel
+          prefs={prefs}
+          onChange={setPrefs}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }

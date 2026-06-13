@@ -27,10 +27,16 @@ export interface ScheduleInput {
   now: number;
 }
 
-/** Fenêtre libre mutable utilisée pendant le placement. */
+/** Créneau libre mutable (issu d'une fenêtre de disponibilité) utilisé au placement. */
 interface FreeSlot {
   start: number;
   end: number;
+  contexts: string[];
+}
+
+/** Une fenêtre/créneau accepte-t-il une tâche de ce contexte ? */
+function accepts(contexts: string[], taskContext: string | undefined): boolean {
+  return contexts.length === 0 || !taskContext || contexts.includes(taskContext);
 }
 
 function timeOfDayOf(ms: number): TimeOfDay {
@@ -68,11 +74,6 @@ function placementBonus(
 export function scheduleDay(input: ScheduleInput): DailyPlan {
   const { date, events, preferences, now } = input;
 
-  const workday: Interval = {
-    start: Math.max(atLocal(date, preferences.workdayStart), now),
-    end: atLocal(date, preferences.workdayEnd),
-  };
-
   const highEnergy: Interval = {
     start: atLocal(date, preferences.highEnergyWindow.start),
     end: atLocal(date, preferences.highEnergyWindow.end),
@@ -86,8 +87,27 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       end: new Date(e.end).getTime(),
     }));
 
-  let slots: FreeSlot[] =
-    workday.end > workday.start ? subtractBusy(workday, busy) : [];
+  // Jour de semaine planifié (0=dimanche … 6=samedi), à midi pour éviter les bords.
+  const weekday = new Date(atLocal(date, "12:00")).getDay();
+  const windows = preferences.availability[weekday] ?? [];
+
+  // Créneaux libres = chaque fenêtre, tronquée au présent et amputée des events.
+  let slots: FreeSlot[] = [];
+  for (const w of windows) {
+    const wInterval: Interval = {
+      start: Math.max(atLocal(date, w.start), now),
+      end: atLocal(date, w.end),
+    };
+    if (wInterval.end <= wInterval.start) continue;
+    for (const free of subtractBusy(wInterval, busy)) {
+      slots.push({ start: free.start, end: free.end, contexts: w.contexts });
+    }
+  }
+
+  const availableMinutes = slots.reduce(
+    (sum, s) => sum + (s.end - s.start) / MINUTE,
+    0,
+  );
 
   const ordered = prioritize(
     input.tasks.filter((t) => t.status !== "done"),
@@ -97,9 +117,6 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
   const blocks: TimeBlock[] = [];
   const unscheduled: UnscheduledTask[] = [];
   const breakMs = preferences.breakBetweenTasksMin * MINUTE;
-
-  // Jour de semaine planifié (0=dimanche … 6=samedi), à midi pour éviter les bords.
-  const weekday = new Date(atLocal(date, "12:00")).getDay();
 
   for (const task of ordered) {
     // Contrainte dure : jour non autorisé pour cette tâche.
@@ -112,14 +129,20 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       continue;
     }
 
+    // Aucune fenêtre du jour n'accepte le contexte de la tâche.
+    if (!windows.some((w) => accepts(w.contexts, task.context))) {
+      unscheduled.push({ task, reason: "no_window" });
+      continue;
+    }
+
     const durationMs =
       (task.estimatedMinutes ?? preferences.defaultTaskMinutes) * MINUTE;
 
-    // Choisit le créneau qui accueille la tâche avec le meilleur bonus,
-    // en départageant par démarrage le plus tôt.
+    // Choisit le créneau compatible avec le contexte et le meilleur bonus.
     let best: { slot: FreeSlot; bonus: number } | null = null;
     for (const slot of slots) {
       if (slot.end - slot.start < durationMs) continue;
+      if (!accepts(slot.contexts, task.context)) continue;
       const bonus = placementBonus(task, slot.start, highEnergy);
       if (
         !best ||
@@ -166,7 +189,7 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
 
   blocks.sort((a, b) => a.start.localeCompare(b.start));
 
-  return { date, blocks, unscheduled };
+  return { date, blocks, unscheduled, availableMinutes };
 }
 
 export { minutesOf };

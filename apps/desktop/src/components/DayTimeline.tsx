@@ -72,7 +72,9 @@ export function DayTimeline({ plan }: { plan: DailyPlan | null }) {
                 <span className="text-amber-600/80 dark:text-amber-400/80">
                   {u.reason === "wrong_day"
                     ? " — jour non autorisé aujourd'hui"
-                    : " — pas assez de temps libre"}
+                    : u.reason === "no_window"
+                      ? " — aucune plage pour ce contexte aujourd'hui"
+                      : " — pas assez de temps libre"}
                 </span>
               </li>
             ))}

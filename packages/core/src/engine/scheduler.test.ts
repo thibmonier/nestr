@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { scheduleDay } from "./scheduler.js";
 import { subtractBusy, atLocal } from "../model/time.js";
-import { DEFAULT_PREFERENCES, type Task, type CalendarEvent } from "../model/types.js";
+import {
+  DEFAULT_PREFERENCES,
+  type PlanningPreferences,
+  type Task,
+  type CalendarEvent,
+} from "../model/types.js";
 
 const DATE = "2026-06-15";
+
+/** Disponibilité simple : une fenêtre 09:00–18:00 tous contextes, chaque jour. */
+function simpleAvailability(): PlanningPreferences["availability"] {
+  const day = [{ start: "09:00", end: "18:00", contexts: [] as string[] }];
+  return Array.from({ length: 7 }, () => day);
+}
 // "now" avant le début de journée pour ne rien tronquer.
 const NOW = atLocal(DATE, "07:00");
 
@@ -46,7 +57,10 @@ describe("subtractBusy", () => {
 });
 
 describe("scheduleDay", () => {
-  const prefs = { ...DEFAULT_PREFERENCES };
+  const prefs: PlanningPreferences = {
+    ...DEFAULT_PREFERENCES,
+    availability: simpleAvailability(),
+  };
 
   it("place les tâches urgentes avant les tâches basses", () => {
     const tasks = [
@@ -107,6 +121,57 @@ describe("scheduleDay", () => {
     const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: prefs, now: NOW });
     expect(plan.blocks.filter((b) => b.kind === "task")).toHaveLength(1);
     expect(plan.unscheduled).toHaveLength(0);
+  });
+
+  describe("fenêtres de disponibilité par contexte", () => {
+    // Lundi : matin pro (09–12), après-midi perso (14–18), midi off.
+    const ctxPrefs: PlanningPreferences = {
+      ...DEFAULT_PREFERENCES,
+      contexts: ["pro", "perso"],
+      availability: Array.from({ length: 7 }, () => [
+        { start: "09:00", end: "12:00", contexts: ["pro"] },
+        { start: "14:00", end: "18:00", contexts: ["perso"] },
+      ]),
+    };
+
+    it("place une tâche pro le matin et une perso l'après-midi", () => {
+      const tasks = [
+        task({ id: "p", context: "pro", estimatedMinutes: 60 }),
+        task({ id: "q", context: "perso", estimatedMinutes: 60 }),
+      ];
+      const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: ctxPrefs, now: NOW });
+      const pro = plan.blocks.find((b) => b.taskId === "p")!;
+      const perso = plan.blocks.find((b) => b.taskId === "q")!;
+      expect(new Date(pro.start).getHours()).toBeLessThan(12);
+      expect(new Date(perso.start).getHours()).toBeGreaterThanOrEqual(14);
+      expect(plan.unscheduled).toHaveLength(0);
+    });
+
+    it("ne place pas une tâche pro dans une fenêtre perso", () => {
+      // Journée 100% perso → la tâche pro n'a aucune fenêtre.
+      const persoOnly: PlanningPreferences = {
+        ...ctxPrefs,
+        availability: Array.from({ length: 7 }, () => [
+          { start: "09:00", end: "18:00", contexts: ["perso"] },
+        ]),
+      };
+      const tasks = [task({ id: "pro", context: "pro", estimatedMinutes: 30 })];
+      const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: persoOnly, now: NOW });
+      expect(plan.blocks.filter((b) => b.kind === "task")).toHaveLength(0);
+      expect(plan.unscheduled[0]).toMatchObject({ reason: "no_window" });
+    });
+
+    it("une tâche sans contexte se place dans n'importe quelle fenêtre", () => {
+      const tasks = [task({ id: "flex", estimatedMinutes: 30 })];
+      const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: ctxPrefs, now: NOW });
+      expect(plan.blocks.filter((b) => b.kind === "task")).toHaveLength(1);
+    });
+
+    it("compte les minutes disponibles (fenêtres moins déjeuner)", () => {
+      const plan = scheduleDay({ date: DATE, tasks: [], events: [], preferences: ctxPrefs, now: NOW });
+      // 09–12 (180) + 14–18 (240) = 420
+      expect(plan.availableMinutes).toBe(420);
+    });
   });
 
   it("ignore les tâches déjà terminées", () => {
