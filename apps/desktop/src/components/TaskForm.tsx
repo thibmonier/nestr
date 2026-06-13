@@ -11,11 +11,19 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   urgent: "Urgente",
 };
 
+const DAY_PRESETS: Record<string, number[] | undefined> = {
+  all: undefined,
+  weekdays: [1, 2, 3, 4, 5],
+  weekend: [0, 6],
+};
+
 export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [minutes, setMinutes] = useState("");
   const [energy, setEnergy] = useState<Energy | "">("");
+  const [dueDate, setDueDate] = useState("");
+  const [days, setDays] = useState<keyof typeof DAY_PRESETS>("all");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,12 +37,15 @@ export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
       estimatedMinutes: minutes ? Number(minutes) : undefined,
       energy: energy || undefined,
       createdAt: new Date().toISOString(),
-      dueDate: undefined,
+      dueDate: dueDate ? new Date(`${dueDate}T23:59:59`).toISOString() : undefined,
+      allowedWeekdays: DAY_PRESETS[days],
     });
     setTitle("");
     setMinutes("");
     setEnergy("");
     setPriority("medium");
+    setDueDate("");
+    setDays("all");
   }
 
   return (
@@ -99,6 +110,33 @@ export function TaskForm({ onAdd }: { onAdd: (task: Task) => void }) {
           <option value="low">Faible</option>
           <option value="medium">Moyenne</option>
           <option value="high">Forte</option>
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          Échéance
+        </span>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          Jours autorisés
+        </span>
+        <select
+          value={days}
+          onChange={(e) => setDays(e.target.value as keyof typeof DAY_PRESETS)}
+          className="rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
+        >
+          <option value="all">Tous les jours</option>
+          <option value="weekdays">Lun–Ven</option>
+          <option value="weekend">Week-end</option>
         </select>
       </label>
 

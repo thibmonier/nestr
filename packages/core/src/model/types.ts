@@ -21,6 +21,12 @@ export interface Task {
   energy?: Energy;
   /** Moment préféré dans la journée. */
   preferredTimeOfDay?: TimeOfDay;
+  /**
+   * Jours de la semaine autorisés (convention JS : 0=dimanche … 6=samedi).
+   * Vide/absent = tous les jours. Contrainte dure : la tâche n'est planifiée
+   * que ces jours-là (ex. appel possible uniquement du lundi au vendredi → [1,2,3,4,5]).
+   */
+  allowedWeekdays?: number[];
   /** id de la tâche parente si c'est une sous-tâche issue d'un découpage. */
   parentId?: string;
   tags?: string[];
@@ -54,13 +60,21 @@ export interface TimeBlock {
   allDay?: boolean;
 }
 
+/** Pourquoi une tâche n'a pas été placée dans le plan du jour. */
+export type UnscheduledReason = "no_time" | "wrong_day";
+
+export interface UnscheduledTask {
+  task: Task;
+  reason: UnscheduledReason;
+}
+
 /** Résultat de la planification d'une journée. */
 export interface DailyPlan {
   /** Jour planifié, format ISO date (YYYY-MM-DD). */
   date: string;
   blocks: TimeBlock[];
-  /** Tâches qui n'ont pas pu être placées faute de temps. */
-  unscheduled: Task[];
+  /** Tâches non placées (manque de temps ou jour non autorisé). */
+  unscheduled: UnscheduledTask[];
 }
 
 /** Préférences de planification de l'utilisateur. */

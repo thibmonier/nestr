@@ -85,7 +85,28 @@ describe("scheduleDay", () => {
       task({ id: "huge", priority: "low", estimatedMinutes: 600 }),
     ];
     const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: prefs, now: NOW });
-    expect(plan.unscheduled.map((t) => t.id)).toContain("huge");
+    expect(plan.unscheduled.map((u) => u.task.id)).toContain("huge");
+    expect(plan.unscheduled.find((u) => u.task.id === "huge")?.reason).toBe("no_time");
+  });
+
+  it("écarte une tâche dont le jour n'est pas autorisé", () => {
+    // 2026-06-15 est un lundi (getDay 1). On autorise seulement le week-end.
+    const tasks = [
+      task({ id: "appel", priority: "urgent", estimatedMinutes: 30, allowedWeekdays: [0, 6] }),
+    ];
+    const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: prefs, now: NOW });
+    expect(plan.blocks.filter((b) => b.kind === "task")).toHaveLength(0);
+    expect(plan.unscheduled[0]).toMatchObject({ reason: "wrong_day" });
+    expect(plan.unscheduled[0]?.task.id).toBe("appel");
+  });
+
+  it("place une tâche le jour autorisé (lundi)", () => {
+    const tasks = [
+      task({ id: "appel", estimatedMinutes: 30, allowedWeekdays: [1, 2, 3, 4, 5] }),
+    ];
+    const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: prefs, now: NOW });
+    expect(plan.blocks.filter((b) => b.kind === "task")).toHaveLength(1);
+    expect(plan.unscheduled).toHaveLength(0);
   });
 
   it("ignore les tâches déjà terminées", () => {

@@ -44,11 +44,18 @@ export function DayTimeline({ plan }: { plan: DailyPlan | null }) {
       {plan.unscheduled.length > 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
           <p className="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
-            Non planifié ({plan.unscheduled.length}) — pas assez de temps libre
+            Non planifié ({plan.unscheduled.length})
           </p>
           <ul className="list-inside list-disc text-sm text-amber-700 dark:text-amber-300">
-            {plan.unscheduled.map((t) => (
-              <li key={t.id}>{t.title}</li>
+            {plan.unscheduled.map((u) => (
+              <li key={u.task.id}>
+                {u.task.title}
+                <span className="text-amber-600/80 dark:text-amber-400/80">
+                  {u.reason === "wrong_day"
+                    ? " — jour non autorisé aujourd'hui"
+                    : " — pas assez de temps libre"}
+                </span>
+              </li>
             ))}
           </ul>
         </div>

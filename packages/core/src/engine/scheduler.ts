@@ -5,6 +5,7 @@ import type {
   Task,
   TimeBlock,
   TimeOfDay,
+  UnscheduledTask,
 } from "../model/types.js";
 import {
   atLocal,
@@ -94,10 +95,23 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
   );
 
   const blocks: TimeBlock[] = [];
-  const unscheduled: Task[] = [];
+  const unscheduled: UnscheduledTask[] = [];
   const breakMs = preferences.breakBetweenTasksMin * MINUTE;
 
+  // Jour de semaine planifié (0=dimanche … 6=samedi), à midi pour éviter les bords.
+  const weekday = new Date(atLocal(date, "12:00")).getDay();
+
   for (const task of ordered) {
+    // Contrainte dure : jour non autorisé pour cette tâche.
+    if (
+      task.allowedWeekdays &&
+      task.allowedWeekdays.length > 0 &&
+      !task.allowedWeekdays.includes(weekday)
+    ) {
+      unscheduled.push({ task, reason: "wrong_day" });
+      continue;
+    }
+
     const durationMs =
       (task.estimatedMinutes ?? preferences.defaultTaskMinutes) * MINUTE;
 
@@ -117,7 +131,7 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
     }
 
     if (!best) {
-      unscheduled.push(task);
+      unscheduled.push({ task, reason: "no_time" });
       continue;
     }
 

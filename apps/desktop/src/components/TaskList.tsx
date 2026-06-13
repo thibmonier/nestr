@@ -15,6 +15,27 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   urgent: "Urgente",
 };
 
+const DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+
+/** Libellé compact d'une contrainte de jours autorisés. */
+function weekdaysLabel(days: number[]): string {
+  const set = [...days].sort((a, b) => a - b).join(",");
+  if (set === "1,2,3,4,5") return "Lun–Ven";
+  if (set === "0,6") return "Week-end";
+  return days
+    .slice()
+    .sort((a, b) => a - b)
+    .map((d) => DAY_SHORT[d])
+    .join(" ");
+}
+
+function dueLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
 export function TaskList({
   tasks,
   onToggle,
@@ -68,6 +89,16 @@ export function TaskList({
               )}
               {t.energy && (
                 <span className="text-slate-400">énergie {t.energy}</span>
+              )}
+              {t.dueDate && (
+                <span className="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                  ⏱ {dueLabel(t.dueDate)}
+                </span>
+              )}
+              {t.allowedWeekdays && t.allowedWeekdays.length > 0 && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                  📅 {weekdaysLabel(t.allowedWeekdays)}
+                </span>
               )}
             </div>
           </div>
