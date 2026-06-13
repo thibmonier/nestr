@@ -16,6 +16,11 @@ import {
 } from "./lib/storage.js";
 import { todayISO } from "./lib/format.js";
 import { advise, estimateDurations, type PlanAdvice } from "./lib/ai.js";
+import {
+  connectGoogle,
+  fetchDayEvents,
+  googleConnected,
+} from "./lib/calendars.js";
 
 export function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
@@ -24,6 +29,7 @@ export function App() {
   const [advice, setAdvice] = useState<PlanAdvice | null>(null);
   const [busy, setBusy] = useState<null | "estimate" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
+  const [googleOn, setGoogleOn] = useState(() => googleConnected());
 
   useEffect(() => saveTasks(tasks), [tasks]);
   useEffect(() => savePreferences(prefs), [prefs]);
@@ -70,23 +76,48 @@ export function App() {
     }
   }
 
-  /** Planifie la journée (moteur) puis récupère les conseils IA. */
+  async function linkGoogle() {
+    setError(null);
+    try {
+      await connectGoogle();
+      setGoogleOn(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  /** Récupère les événements du jour, planifie (moteur) puis conseils IA. */
   async function planDay() {
     setError(null);
-    const generated = scheduleDay({
-      date: todayISO(),
-      tasks,
-      events: [],
-      preferences: prefs,
-      now: Date.now(),
-    });
-    setPlan(generated);
-
     setBusy("plan");
     try {
+      const date = todayISO();
+      const start = new Date(`${date}T00:00:00`).toISOString();
+      const end = new Date(`${date}T23:59:59`).toISOString();
+      const events = await fetchDayEvents(start, end);
+
+      const generated = scheduleDay({
+        date,
+        tasks,
+        events,
+        preferences: prefs,
+        now: Date.now(),
+      });
+      setPlan(generated);
+
       const [h1, m1] = prefs.workdayStart.split(":").map(Number);
       const [h2, m2] = prefs.workdayEnd.split(":").map(Number);
-      const freeMinutes = (h2! * 60 + m2!) - (h1! * 60 + m1!);
+      const busyMin = events
+        .filter((e) => e.busy && !e.allDay)
+        .reduce(
+          (sum, e) =>
+            sum + (new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000,
+          0,
+        );
+      const freeMinutes = Math.max(
+        0,
+        h2! * 60 + m2! - (h1! * 60 + m1!) - busyMin,
+      );
       setAdvice(await advise(pending, freeMinutes));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -106,6 +137,13 @@ export function App() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={linkGoogle}
+              disabled={busy !== null}
+              className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              {googleOn ? "✓ Google connecté" : "Connecter Google"}
+            </button>
             <button
               onClick={estimateWithAi}
               disabled={pending.length === 0 || busy !== null}
