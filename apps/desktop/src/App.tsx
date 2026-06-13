@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDays,
   scheduleDay,
@@ -29,11 +29,21 @@ import {
 } from "./lib/ai.js";
 import { BreakdownModal } from "./components/BreakdownModal.js";
 import { newId } from "./lib/storage.js";
+import { fetchDayEvents } from "./lib/calendars.js";
 import {
-  connectGoogle,
-  fetchDayEvents,
-  googleConnected,
-} from "./lib/calendars.js";
+  fetchMe,
+  isLoggedIn,
+  loginWithGoogle,
+  logout,
+  saveAppleCredentials,
+  type MeStatus,
+} from "./lib/auth.js";
+import {
+  pullPreferences,
+  pullTasks,
+  pushPreferences,
+  pushTasks,
+} from "./lib/sync.js";
 
 export function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
@@ -43,7 +53,8 @@ export function App() {
   const [advice, setAdvice] = useState<PlanAdvice | null>(null);
   const [busy, setBusy] = useState<null | "estimate" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
-  const [googleOn, setGoogleOn] = useState(() => googleConnected());
+  const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
+  const [me, setMe] = useState<MeStatus | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [breakingId, setBreakingId] = useState<string | null>(null);
   const [breakdown, setBreakdown] = useState<{
@@ -53,6 +64,54 @@ export function App() {
 
   useEffect(() => saveTasks(tasks), [tasks]);
   useEffect(() => savePreferences(prefs), [prefs]);
+
+  const hydratedRef = useRef(false);
+
+  // À la connexion : récupère l'état serveur (ou amorce le serveur avec le local).
+  useEffect(() => {
+    if (!loggedIn) {
+      hydratedRef.current = true;
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const status = await fetchMe();
+        if (cancelled) return;
+        setMe(status);
+        const [serverTasks, serverPrefs] = await Promise.all([
+          pullTasks(),
+          pullPreferences(),
+        ]);
+        if (cancelled) return;
+        if (serverTasks.length > 0) setTasks(serverTasks);
+        else if (tasks.length > 0) await pushTasks(tasks);
+        if (serverPrefs) setPrefs(serverPrefs);
+        else await pushPreferences(prefs);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        hydratedRef.current = true;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedIn]);
+
+  // Pousse les changements vers le serveur (debounce).
+  useEffect(() => {
+    if (!loggedIn || !hydratedRef.current) return;
+    const id = setTimeout(() => void pushTasks(tasks).catch(() => {}), 800);
+    return () => clearTimeout(id);
+  }, [tasks, loggedIn]);
+
+  useEffect(() => {
+    if (!loggedIn || !hydratedRef.current) return;
+    const id = setTimeout(() => void pushPreferences(prefs).catch(() => {}), 800);
+    return () => clearTimeout(id);
+  }, [prefs, loggedIn]);
 
   const pending = useMemo(
     () => tasks.filter((t) => t.status !== "done"),
@@ -134,14 +193,25 @@ export function App() {
     }
   }
 
-  async function linkGoogle() {
+  async function signIn() {
     setError(null);
     try {
-      await connectGoogle();
-      setGoogleOn(true);
+      await loginWithGoogle();
+      setLoggedIn(true); // déclenche l'hydratation depuis le serveur
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  function signOut() {
+    logout();
+    setLoggedIn(false);
+    setMe(null);
+  }
+
+  async function connectApple(appleId: string, appPassword: string) {
+    await saveAppleCredentials(appleId, appPassword);
+    setMe((m) => (m ? { ...m, appleConnected: true } : m));
   }
 
   /** Récupère les événements du jour, planifie (moteur) puis conseils IA. */
@@ -228,13 +298,21 @@ export function App() {
             >
               Réglages
             </button>
-            <button
-              onClick={linkGoogle}
-              disabled={busy !== null}
-              className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {googleOn ? "✓ Google connecté" : "Connecter Google"}
-            </button>
+            {loggedIn ? (
+              <button
+                onClick={signOut}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Déconnexion
+              </button>
+            ) : (
+              <button
+                onClick={signIn}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Se connecter (Google)
+              </button>
+            )}
             <button
               onClick={estimateWithAi}
               disabled={pending.length === 0 || busy !== null}
@@ -308,6 +386,9 @@ export function App() {
           prefs={prefs}
           onChange={setPrefs}
           onClose={() => setShowSettings(false)}
+          loggedIn={loggedIn}
+          appleConnected={me?.appleConnected ?? false}
+          onConnectApple={connectApple}
         />
       )}
 

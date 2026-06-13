@@ -6,13 +6,15 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
-  }
-  // Secrets (set via `wrangler secret put`, not committed):
-  //   ANTHROPIC_API_KEY
-  // Local dev reads them from services/api/.dev.vars
-  //
-  // D1 (Phase 4) — uncomment when adding persistence:
-  // "d1_databases": [
-  //   { "binding": "DB", "database_name": "nestr", "database_id": "<id>" }
-  // ]
+  },
+  // Secrets (set via `wrangler secret put`, not committed) :
+  //   ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID/SECRET, ENCRYPTION_KEY (base64 32o)
+  // En local, lus depuis services/api/.dev.vars
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nestr",
+      "database_id": "local-nestr-dev"
+    }
+  ]
 }

@@ -1,6 +1,11 @@
 import type { CalendarEvent } from "@nestr/core";
 
-const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const SCOPE = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/calendar.readonly",
+].join(" ");
 
 export interface GoogleConfig {
   clientId: string;
@@ -25,6 +30,7 @@ export function googleAuthUrl(cfg: GoogleConfig, state: string): string {
 interface TokenResponse {
   access_token: string;
   refresh_token?: string;
+  id_token?: string;
   expires_in: number;
 }
 

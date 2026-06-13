@@ -15,12 +15,37 @@ export function SettingsPanel({
   prefs,
   onChange,
   onClose,
+  loggedIn,
+  appleConnected,
+  onConnectApple,
 }: {
   prefs: PlanningPreferences;
   onChange: (p: PlanningPreferences) => void;
   onClose: () => void;
+  loggedIn: boolean;
+  appleConnected: boolean;
+  onConnectApple: (appleId: string, appPassword: string) => Promise<void>;
 }) {
   const [newContext, setNewContext] = useState("");
+  const [appleId, setAppleId] = useState("");
+  const [applePassword, setApplePassword] = useState("");
+  const [appleBusy, setAppleBusy] = useState(false);
+  const [appleMsg, setAppleMsg] = useState<string | null>(null);
+
+  async function submitApple() {
+    setAppleBusy(true);
+    setAppleMsg(null);
+    try {
+      await onConnectApple(appleId.trim(), applePassword.trim());
+      setAppleId("");
+      setApplePassword("");
+      setAppleMsg("Calendrier Apple connecté.");
+    } catch (e) {
+      setAppleMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAppleBusy(false);
+    }
+  }
 
   function update(patch: Partial<PlanningPreferences>) {
     onChange({ ...prefs, ...patch });
@@ -103,6 +128,53 @@ export function SettingsPanel({
               className="w-28 rounded-lg border border-slate-300 bg-transparent px-3 py-1 text-sm dark:border-slate-600"
             />
           </div>
+        </section>
+
+        {/* Calendrier Apple */}
+        <section className="mb-6">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Calendrier Apple (iCloud)
+          </h3>
+          {!loggedIn ? (
+            <p className="text-sm text-slate-400">
+              Connecte-toi d'abord pour enregistrer tes identifiants.
+            </p>
+          ) : appleConnected ? (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+              ✓ Connecté. Saisis de nouveaux identifiants pour les remplacer.
+            </p>
+          ) : (
+            <p className="mb-2 text-sm text-slate-400">
+              Apple ID + un mot de passe pour application (appleid.apple.com).
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <input
+              value={appleId}
+              onChange={(e) => setAppleId(e.target.value)}
+              placeholder="apple-id@email.com"
+              className="flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
+            />
+            <input
+              type="password"
+              value={applePassword}
+              onChange={(e) => setApplePassword(e.target.value)}
+              placeholder="xxxx-xxxx-xxxx-xxxx"
+              className="flex-1 rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm dark:border-slate-600"
+            />
+            <button
+              onClick={submitApple}
+              disabled={!loggedIn || appleBusy || !appleId || !applePassword}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-40"
+            >
+              {appleBusy ? "…" : "Enregistrer"}
+            </button>
+          </div>
+          {appleMsg && (
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {appleMsg}
+            </p>
+          )}
         </section>
 
         {/* Plages par jour */}
