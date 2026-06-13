@@ -5,9 +5,11 @@ import type {
   Task,
   TimeBlock,
   TimeOfDay,
+  UnscheduledReason,
   UnscheduledTask,
 } from "../model/types.js";
 import {
+  addDays,
   atLocal,
   Interval,
   MINUTE,
@@ -190,6 +192,104 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
   blocks.sort((a, b) => a.start.localeCompare(b.start));
 
   return { date, blocks, unscheduled, availableMinutes };
+}
+
+export interface ScheduleRangeInput {
+  /** Premier jour planifié, "YYYY-MM-DD". */
+  startDate: string;
+  /** Nombre de jours à planifier (ex. 7). */
+  days: number;
+  tasks: Task[];
+  /** Événements d'agenda par jour ("YYYY-MM-DD" → events). */
+  eventsByDate: Record<string, CalendarEvent[]>;
+  preferences: PlanningPreferences;
+  now: number;
+}
+
+export interface WeekPlan {
+  /** Un plan par jour de la plage. */
+  days: DailyPlan[];
+  /** Tâches non placées sur toute la plage. */
+  unscheduled: UnscheduledTask[];
+}
+
+/** Date "YYYY-MM-DD" de l'échéance (ignore l'heure). */
+const dueDay = (t: Task): string | undefined => t.dueDate?.slice(0, 10);
+
+/**
+ * Détermine pourquoi une tâche n'a pu être placée nulle part sur la plage :
+ * aucun jour autorisé, aucune fenêtre pour son contexte, ou manque de temps.
+ */
+function rangeReason(
+  task: Task,
+  startDate: string,
+  days: number,
+  prefs: PlanningPreferences,
+): UnscheduledReason {
+  let anyDay = false;
+  let anyWindow = false;
+  for (let i = 0; i < days; i++) {
+    const date = addDays(startDate, i);
+    const due = dueDay(task);
+    if (due && due < date) continue; // après l'échéance ce jour-là
+    const wd = new Date(atLocal(date, "12:00")).getDay();
+    if (task.allowedWeekdays?.length && !task.allowedWeekdays.includes(wd)) {
+      continue;
+    }
+    anyDay = true;
+    const windows = prefs.availability[wd] ?? [];
+    if (windows.some((w) => accepts(w.contexts, task.context))) anyWindow = true;
+  }
+  if (!anyDay) return "wrong_day";
+  if (!anyWindow) return "no_window";
+  return "no_time";
+}
+
+/**
+ * Planifie une plage de jours : place les tâches au plus tôt, en reportant au
+ * lendemain celles qui ne tiennent pas, sans jamais dépasser leur échéance ni
+ * leurs jours autorisés. Réutilise le placement journalier (fenêtres + contexte).
+ */
+export function scheduleRange(input: ScheduleRangeInput): WeekPlan {
+  const { startDate, days, eventsByDate, preferences, now } = input;
+
+  let remaining = prioritize(
+    input.tasks.filter((t) => t.status !== "done"),
+    now,
+  );
+
+  const dayPlans: DailyPlan[] = [];
+  for (let i = 0; i < days; i++) {
+    const date = addDays(startDate, i);
+    const dayNow = i === 0 ? now : atLocal(date, "00:00");
+
+    // Éligibles ce jour : échéance non dépassée.
+    const eligible = remaining.filter((t) => {
+      const due = dueDay(t);
+      return !due || due >= date;
+    });
+
+    const plan = scheduleDay({
+      date,
+      tasks: eligible,
+      events: eventsByDate[date] ?? [],
+      preferences,
+      now: dayNow,
+    });
+    dayPlans.push(plan);
+
+    const placed = new Set(
+      plan.blocks.filter((b) => b.kind === "task").map((b) => b.taskId),
+    );
+    remaining = remaining.filter((t) => !placed.has(t.id));
+  }
+
+  const unscheduled: UnscheduledTask[] = remaining.map((task) => ({
+    task,
+    reason: rangeReason(task, startDate, days, preferences),
+  }));
+
+  return { days: dayPlans, unscheduled };
 }
 
 export { minutesOf };

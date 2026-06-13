@@ -20,6 +20,15 @@ export function atLocal(dateISO: string, hhmm: string): number {
 
 export const toISO = (ms: number): string => new Date(ms).toISOString();
 
+/** Ajoute `n` jours à une date "YYYY-MM-DD" et renvoie le même format. */
+export function addDays(dateISO: string, n: number): string {
+  const [y, m, d] = dateISO.split("-").map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, (d ?? 1) + n);
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${dt.getFullYear()}-${mm}-${dd}`;
+}
+
 /** Fusionne des intervalles qui se chevauchent ou se touchent. */
 export function mergeIntervals(intervals: Interval[]): Interval[] {
   if (intervals.length === 0) return [];

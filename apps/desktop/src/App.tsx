@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  addDays,
   scheduleDay,
+  scheduleRange,
   type DailyPlan,
   type PlanningPreferences,
   type Task,
+  type WeekPlan,
 } from "@nestr/core";
 import { TaskForm } from "./components/TaskForm.js";
 import { TaskList } from "./components/TaskList.js";
 import { DayTimeline } from "./components/DayTimeline.js";
+import { WeekView } from "./components/WeekView.js";
 import { SettingsPanel } from "./components/SettingsPanel.js";
 import {
   loadPreferences,
@@ -15,7 +19,7 @@ import {
   savePreferences,
   saveTasks,
 } from "./lib/storage.js";
-import { todayISO } from "./lib/format.js";
+import { localDate, todayISO } from "./lib/format.js";
 import { advise, estimateDurations, type PlanAdvice } from "./lib/ai.js";
 import {
   connectGoogle,
@@ -27,6 +31,7 @@ export function App() {
   const [tasks, setTasks] = useState<Task[]>(() => loadTasks());
   const [prefs, setPrefs] = useState<PlanningPreferences>(() => loadPreferences());
   const [plan, setPlan] = useState<DailyPlan | null>(null);
+  const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
   const [advice, setAdvice] = useState<PlanAdvice | null>(null);
   const [busy, setBusy] = useState<null | "estimate" | "plan">(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,9 +110,48 @@ export function App() {
         preferences: prefs,
         now: Date.now(),
       });
+      setWeekPlan(null);
       setPlan(generated);
 
       setAdvice(await advise(pending, Math.round(generated.availableMinutes)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Planifie les 7 prochains jours en répartissant les tâches. */
+  async function planWeek() {
+    setError(null);
+    setBusy("plan");
+    try {
+      const start = todayISO();
+      const DAYS = 7;
+      const rangeStart = new Date(`${start}T00:00:00`).toISOString();
+      const lastDay = addDays(start, DAYS - 1);
+      const rangeEnd = new Date(`${lastDay}T23:59:59`).toISOString();
+
+      const events = await fetchDayEvents(rangeStart, rangeEnd);
+      const eventsByDate: Record<string, typeof events> = {};
+      for (const e of events) {
+        const key = localDate(e.start);
+        (eventsByDate[key] ??= []).push(e);
+      }
+
+      const week = scheduleRange({
+        startDate: start,
+        days: DAYS,
+        tasks,
+        eventsByDate,
+        preferences: prefs,
+        now: Date.now(),
+      });
+      setPlan(null);
+      setWeekPlan(week);
+
+      const totalFree = week.days.reduce((s, d) => s + d.availableMinutes, 0);
+      setAdvice(await advise(pending, Math.round(totalFree)));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -154,6 +198,13 @@ export function App() {
             >
               {busy === "plan" ? "Planification…" : "Planifier ma journée"}
             </button>
+            <button
+              onClick={planWeek}
+              disabled={pending.length === 0 || busy !== null}
+              className="rounded-lg border border-indigo-600 px-5 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-indigo-300 dark:hover:bg-indigo-950"
+            >
+              Planifier ma semaine
+            </button>
           </div>
         </div>
       </header>
@@ -177,7 +228,7 @@ export function App() {
 
         <section className="flex flex-col gap-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
-            Plan du jour
+            {weekPlan ? "Plan de la semaine" : "Plan du jour"}
           </h2>
           {advice && (
             <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-800 dark:bg-indigo-950/40">
@@ -191,7 +242,7 @@ export function App() {
               </ul>
             </div>
           )}
-          <DayTimeline plan={plan} />
+          {weekPlan ? <WeekView week={weekPlan} /> : <DayTimeline plan={plan} />}
         </section>
       </main>
 

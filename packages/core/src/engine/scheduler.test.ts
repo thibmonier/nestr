@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scheduleDay } from "./scheduler.js";
+import { scheduleDay, scheduleRange } from "./scheduler.js";
 import { subtractBusy, atLocal } from "../model/time.js";
 import {
   DEFAULT_PREFERENCES,
@@ -190,5 +190,65 @@ describe("scheduleDay", () => {
     const gap =
       (new Date(tb[1]!.start).getTime() - new Date(tb[0]!.end).getTime()) / 60000;
     expect(gap).toBe(prefs.breakBetweenTasksMin);
+  });
+});
+
+describe("scheduleRange", () => {
+  // DATE = 2026-06-15 lundi. Plage lundi→mercredi.
+  const prefs: PlanningPreferences = {
+    ...DEFAULT_PREFERENCES,
+    availability: simpleAvailability(),
+  };
+
+  it("reporte au lendemain une tâche qui ne tient pas le jour même", () => {
+    const tasks = [
+      task({ id: "a", priority: "high", estimatedMinutes: 360 }),
+      task({ id: "b", priority: "medium", estimatedMinutes: 360 }),
+    ];
+    const week = scheduleRange({
+      startDate: DATE,
+      days: 3,
+      tasks,
+      eventsByDate: {},
+      preferences: prefs,
+      now: NOW,
+    });
+    const day0 = week.days[0]!.blocks.filter((b) => b.kind === "task");
+    const day1 = week.days[1]!.blocks.filter((b) => b.kind === "task");
+    expect(day0.map((b) => b.taskId)).toEqual(["a"]);
+    expect(day1.map((b) => b.taskId)).toEqual(["b"]);
+    expect(week.unscheduled).toHaveLength(0);
+  });
+
+  it("place une tâche le bon jour autorisé dans la plage", () => {
+    // Mercredi 2026-06-17 = getDay 3. Tâche autorisée mercredi seulement.
+    const tasks = [task({ id: "merc", estimatedMinutes: 30, allowedWeekdays: [3] })];
+    const week = scheduleRange({
+      startDate: DATE,
+      days: 5,
+      tasks,
+      eventsByDate: {},
+      preferences: prefs,
+      now: NOW,
+    });
+    const wedTasks = week.days[2]!.blocks.filter((b) => b.kind === "task");
+    expect(wedTasks.map((b) => b.taskId)).toEqual(["merc"]);
+    expect(week.days[0]!.blocks.filter((b) => b.kind === "task")).toHaveLength(0);
+    expect(week.unscheduled).toHaveLength(0);
+  });
+
+  it("laisse non planifiée une tâche dont l'échéance précède la plage", () => {
+    const tasks = [
+      task({ id: "tard", estimatedMinutes: 30, dueDate: "2026-06-10T23:59:59.000Z" }),
+    ];
+    const week = scheduleRange({
+      startDate: DATE,
+      days: 3,
+      tasks,
+      eventsByDate: {},
+      preferences: prefs,
+      now: NOW,
+    });
+    expect(week.unscheduled.map((u) => u.task.id)).toEqual(["tard"]);
   });
 });

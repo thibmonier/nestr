@@ -1,7 +1,13 @@
 import type { DailyPlan } from "@nestr/core";
 import { hhmm } from "../lib/format.js";
 
-export function DayTimeline({ plan }: { plan: DailyPlan | null }) {
+export function DayTimeline({
+  plan,
+  hideUnscheduled,
+}: {
+  plan: DailyPlan | null;
+  hideUnscheduled?: boolean;
+}) {
   if (!plan) {
     return (
       <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400 dark:border-slate-700">
@@ -60,7 +66,7 @@ export function DayTimeline({ plan }: { plan: DailyPlan | null }) {
         ))}
       </div>
 
-      {plan.unscheduled.length > 0 && (
+      {!hideUnscheduled && plan.unscheduled.length > 0 && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
           <p className="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
             Non planifié ({plan.unscheduled.length})
