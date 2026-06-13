@@ -1,0 +1,21 @@
+{
+  "name": "nestr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Assistant de planification quotidienne piloté par IA — tâches + calendriers Google/Apple",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build:core": "npm run build -w @nestr/core",
+    "test": "npm run test -w @nestr/core",
+    "desktop": "npm run dev -w @nestr/desktop",
+    "desktop:tauri": "npm run tauri -w @nestr/desktop -- dev",
+    "api:dev": "npm run dev -w @nestr/api"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

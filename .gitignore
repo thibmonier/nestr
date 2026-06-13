@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Tauri / Rust
+apps/desktop/src-tauri/target/
+target/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Editor
+.vscode/
+.idea/

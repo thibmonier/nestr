@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "desktop",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "@nestr/desktop"],
+      "port": 1420
+    }
+  ]
+}
