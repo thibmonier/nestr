@@ -115,14 +115,20 @@ app.post("/ai/advise", async (c) => {
 
 // --- Auth Google (login + connexion calendrier en une fois) ---
 
-/** Seules les URL loopback sont acceptées comme cible de retour (anti open-redirect). */
+/**
+ * Cibles de retour autorisées (anti open-redirect) :
+ * - desktop Tauri : serveur loopback `http://localhost:PORT`
+ * - mobile Expo : deep-link applicatif `nestr://...`
+ */
 const LOOPBACK_RE = /^http:\/\/(localhost|127\.0\.0\.1):\d+\/?$/;
+const APP_SCHEME_RE = /^nestr:\/\/[a-z0-9/_-]*$/i;
+const isAppRedirect = (url: string) => LOOPBACK_RE.test(url) || APP_SCHEME_RE.test(url);
 
 app.get("/auth/google", (c) => {
-  // En Tauri : l'app passe un serveur loopback comme cible de retour. On le
+  // L'app (Tauri loopback ou Expo deep-link) passe sa cible de retour. On la
   // transporte dans le `state` OAuth (round-trip jusqu'au callback).
   const appRedirect = c.req.query("app_redirect");
-  const state = appRedirect && LOOPBACK_RE.test(appRedirect) ? appRedirect : "nestr";
+  const state = appRedirect && isAppRedirect(appRedirect) ? appRedirect : "nestr";
   return c.redirect(googleAuthUrl(googleConfig(c.env), state));
 });
 
@@ -155,10 +161,11 @@ app.get("/auth/google/callback", async (c) => {
   }
   const session = await createSession(c.env.DB, user.id);
 
-  // Flux Tauri (loopback) : le `state` est l'URL du serveur localhost de l'app.
-  // On y renvoie le token en query plutôt que par postMessage.
+  // Flux app (Tauri loopback `http://localhost:PORT` ou Expo deep-link
+  // `nestr://auth`) : le `state` porte la cible de retour. On y renvoie le
+  // token en query plutôt que par postMessage.
   const state = c.req.query("state") ?? "";
-  if (LOOPBACK_RE.test(state)) {
+  if (isAppRedirect(state)) {
     const target = new URL(state);
     target.searchParams.set("token", session);
     if (user.email) target.searchParams.set("email", user.email);
