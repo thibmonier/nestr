@@ -12,10 +12,13 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
  *  `selectedDate` est piloté par le parent (sync avec la vue principale). */
 export function CalendarPanel({
   selectedDate,
+  localEvents,
   onSelectDate,
   onClose,
 }: {
   selectedDate: string;
+  /** Événements créés localement (ajout rapide), fusionnés à l'agenda du jour. */
+  localEvents: CalendarEvent[];
   onSelectDate: (iso: string) => void;
   onClose: () => void;
 }) {
@@ -31,18 +34,21 @@ export function CalendarPanel({
     setLoading(true);
     const start = new Date(`${selectedISO}T00:00:00`).toISOString();
     const end = new Date(`${selectedISO}T23:59:59`).toISOString();
+    const local = localEvents.filter((e) => e.start >= start && e.start <= end);
     fetchDayEvents(start, end)
       .then((ev) => {
-        if (!cancelled) setEvents(ev.slice().sort((a, b) => a.start.localeCompare(b.start)));
+        if (!cancelled) setEvents([...ev, ...local].sort((a, b) => a.start.localeCompare(b.start)));
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setEvents(local.slice().sort((a, b) => a.start.localeCompare(b.start)));
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [selectedISO]);
+  }, [selectedISO, localEvents]);
 
   function shiftMonth(delta: number) {
     let m = viewMonth + delta;
@@ -148,7 +154,7 @@ export function CalendarPanel({
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
             {events.map((e) => (
               <div key={e.id} style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
-                <span style={{ marginTop: "0.3rem", width: 8, height: 8, borderRadius: "var(--radius-pill)", background: e.source === "google" ? "var(--cal-google-fg)" : "var(--cal-apple-fg)", flexShrink: 0 }} />
+                <span style={{ marginTop: "0.3rem", width: 8, height: 8, borderRadius: "var(--radius-pill)", background: e.source === "google" ? "var(--cal-google-fg)" : e.source === "apple" ? "var(--cal-apple-fg)" : "var(--block-event)", flexShrink: 0 }} />
                 <div>
                   <div style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", fontWeight: "var(--fw-medium)" }}>{e.title}</div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>

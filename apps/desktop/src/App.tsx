@@ -113,6 +113,7 @@ export function App() {
       {showCalendar && (
         <CalendarPanel
           selectedDate={selectedDate}
+          localEvents={localEvents.events}
           onSelectDate={selectDay}
           onClose={() => setShowCalendar(false)}
         />
