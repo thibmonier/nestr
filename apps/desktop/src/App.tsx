@@ -22,7 +22,7 @@ import { useTimeTracking } from "./hooks/useTimeTracking.js";
 import { useReminders } from "./hooks/useReminders.js";
 
 export function App() {
-  const { tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer } =
+  const { tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer, deferLater } =
     useTasks();
   const [prefs, setPrefs] = useState<PlanningPreferences>(() => loadPreferences());
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +142,7 @@ export function App() {
               onRemove={remove}
               onBreakdown={planner.startBreakdown}
               onDefer={defer}
+              onDeferLater={deferLater}
               onEditStart={(id) => {
                 const t = tasks.find((x) => x.id === id);
                 if (t) setTaskModal({ task: t });

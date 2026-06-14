@@ -81,6 +81,25 @@ describe("scheduleDay", () => {
     expect(tb.mode).toBe("phone");
   });
 
+  it("exclut du plan une tâche reportée à un jour postérieur", () => {
+    const tasks = [
+      task({ id: "today", estimatedMinutes: 30 }),
+      task({ id: "later", estimatedMinutes: 30, deferredTo: "2026-06-16" }),
+    ];
+    const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: prefs, now: NOW });
+    const ids = plan.blocks.filter((b) => b.kind === "task").map((b) => b.taskId);
+    expect(ids).toContain("today");
+    expect(ids).not.toContain("later");
+    // Une tâche reportée n'est pas non plus listée en « non planifié ».
+    expect(plan.unscheduled.map((u) => u.task.id)).not.toContain("later");
+  });
+
+  it("réintègre la tâche le jour de son report", () => {
+    const tasks = [task({ id: "later", estimatedMinutes: 30, deferredTo: "2026-06-15" })];
+    const plan = scheduleDay({ date: "2026-06-15", tasks, events: [], preferences: prefs, now: atLocal("2026-06-15", "07:00") });
+    expect(plan.blocks.some((b) => b.taskId === "later")).toBe(true);
+  });
+
   it("respecte les événements d'agenda (busy)", () => {
     const events: CalendarEvent[] = [
       {
