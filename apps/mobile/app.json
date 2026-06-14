@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Nestr",
+    "slug": "nestr",
+    "scheme": "nestr",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.nestr.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.nestr.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
