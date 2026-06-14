@@ -3,6 +3,7 @@ import { PriorityBadge, type Priority } from "./PriorityBadge.js";
 import { MetaTag } from "./MetaTag.js";
 import { Tag } from "./Tag.js";
 import { Icon, type IconName } from "../foundation/Icon.js";
+import { Checkbox } from "../forms/Checkbox.js";
 
 export type TaskContext = "pro" | "perso";
 export type TaskMode = "video" | "phone" | "action" | "trip";
@@ -129,9 +130,10 @@ export function TaskRow({
         cursor: draggable ? "grab" : "default",
       }}
     >
-      <input
-        type="checkbox" checked={done} onChange={onToggle}
-        style={{ width: "1rem", height: "1rem", marginTop: "0.15rem", accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }}
+      <Checkbox
+        checked={done}
+        onChange={onToggle}
+        wrapperStyle={{ marginTop: "0.15rem", flexShrink: 0 }}
       />
 
       <div style={{ flex: 1, minWidth: 0 }}>
