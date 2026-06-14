@@ -36,3 +36,11 @@ CREATE TABLE IF NOT EXISTS calendar_credentials (
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (user_id, provider)
 );
+
+-- Config IA chiffrée par utilisateur (provider + clé API). Un provider actif par user.
+CREATE TABLE IF NOT EXISTS ai_credentials (
+  user_id     TEXT PRIMARY KEY,
+  provider    TEXT NOT NULL,
+  enc         TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);

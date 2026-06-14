@@ -44,7 +44,9 @@ import {
   loginWithGoogle,
   logout,
   saveAppleCredentials,
+  saveAiKey,
   type MeStatus,
+  type AiProvider,
 } from "./lib/auth.js";
 import {
   pullPreferences,
@@ -299,6 +301,11 @@ export function App() {
     setMe((m) => (m ? { ...m, appleConnected: true } : m));
   }
 
+  async function saveAi(provider: AiProvider, apiKey: string) {
+    await saveAiKey(provider, apiKey);
+    setMe((m) => (m ? { ...m, aiConfigured: true, aiProvider: provider } : m));
+  }
+
   /** Récupère les événements du jour, planifie (moteur) puis conseils IA.
    *  `date` = jour à planifier (défaut : jour sélectionné). `withAdvice` permet
    *  de sauter l'appel IA lors d'une simple navigation de calendrier. */
@@ -320,7 +327,7 @@ export function App() {
       setWeekPlan(null);
       setPlan(generated);
 
-      if (withAdvice) {
+      if (withAdvice && me?.aiConfigured) {
         setAdvice(await advise(pending, Math.round(generated.availableMinutes)));
       }
     } catch (err) {
@@ -359,8 +366,10 @@ export function App() {
       setPlan(null);
       setWeekPlan(week);
 
-      const totalFree = week.days.reduce((s, d) => s + d.availableMinutes, 0);
-      setAdvice(await advise(pending, Math.round(totalFree)));
+      if (me?.aiConfigured) {
+        const totalFree = week.days.reduce((s, d) => s + d.availableMinutes, 0);
+        setAdvice(await advise(pending, Math.round(totalFree)));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -418,9 +427,11 @@ export function App() {
                 { value: "semaine", label: "Semaine" },
               ]}
             />
-            <Button variant="ghost" onClick={estimateWithAi} disabled={pending.length === 0 || busy !== null}>
-              {busy === "estimate" ? "Estimation…" : "Estimer (IA)"}
-            </Button>
+            <span title={!me?.aiConfigured ? "Configure ta clé IA dans les Réglages" : undefined}>
+              <Button variant="ghost" onClick={estimateWithAi} disabled={pending.length === 0 || busy !== null || !me?.aiConfigured}>
+                {busy === "estimate" ? "Estimation…" : "Estimer (IA)"}
+              </Button>
+            </span>
             <Button variant="primary" size="lg" onClick={planNow} disabled={pending.length === 0 || busy !== null}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
                 <Icon name="sparkles" size={15} />
@@ -523,6 +534,9 @@ export function App() {
           onConnectApple={connectApple}
           onSignIn={signIn}
           onSignOut={signOut}
+          aiConfigured={me?.aiConfigured ?? false}
+          aiProvider={me?.aiProvider ?? null}
+          onSaveAiKey={saveAi}
         />
       )}
 

@@ -1,9 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import OpenAI from "openai";
 import { z } from "zod/v4";
 import type { Task } from "@nestr/core";
 
-const MODEL = "claude-opus-4-8";
+export type AiProvider = "anthropic" | "openai";
+
+const DEFAULT_MODEL: Record<AiProvider, string> = {
+  anthropic: "claude-opus-4-8",
+  openai: "gpt-4o-2024-08-06",
+};
 
 const energyEnum = z.enum(["low", "medium", "high"]);
 
@@ -33,91 +39,166 @@ const adviceSchema = z.object({
   tips: z.array(z.string()),
 });
 
+/* JSON Schemas explicites (mode strict OpenAI ; Anthropic utilise le zod). */
+const ENERGY = { type: "string", enum: ["low", "medium", "high"] } as const;
+const JSON_SCHEMAS = {
+  estimate: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      estimates: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            taskId: { type: "string" },
+            estimatedMinutes: { type: "number" },
+            energy: ENERGY,
+            rationale: { type: "string" },
+          },
+          required: ["taskId", "estimatedMinutes", "energy", "rationale"],
+        },
+      },
+    },
+    required: ["estimates"],
+  },
+  breakdown: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      subtasks: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            title: { type: "string" },
+            estimatedMinutes: { type: "number" },
+            energy: ENERGY,
+          },
+          required: ["title", "estimatedMinutes", "energy"],
+        },
+      },
+    },
+    required: ["subtasks"],
+  },
+  advice: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      summary: { type: "string" },
+      tips: { type: "array", items: { type: "string" } },
+    },
+    required: ["summary", "tips"],
+  },
+} as const;
+
 /** Description compacte d'une tâche pour les prompts. */
 function taskLine(t: Task): string {
-  const bits = [
-    `id=${t.id}`,
-    `titre="${t.title}"`,
-    `priorité=${t.priority}`,
-  ];
+  const bits = [`id=${t.id}`, `titre="${t.title}"`, `priorité=${t.priority}`];
   if (t.notes) bits.push(`notes="${t.notes}"`);
   if (t.dueDate) bits.push(`échéance=${t.dueDate}`);
   return bits.join(" | ");
 }
 
-export function createPlanner(apiKey: string) {
+type SchemaKey = keyof typeof JSON_SCHEMAS;
+
+/** Client LLM abstrait : un appel structuré, validé par zod, quel que soit le provider. */
+interface LlmClient {
+  complete<T>(
+    system: string,
+    user: string,
+    key: SchemaKey,
+    zodSchema: z.ZodType<T>,
+    effort: "low" | "medium",
+  ): Promise<T>;
+}
+
+function anthropicClient(apiKey: string): LlmClient {
   const client = new Anthropic({ apiKey });
+  return {
+    async complete(system, user, key, zodSchema, effort) {
+      const res = await client.messages.parse({
+        model: DEFAULT_MODEL.anthropic,
+        max_tokens: 4000,
+        ...(key === "advice" ? { thinking: { type: "adaptive" as const } } : {}),
+        output_config: { effort, format: zodOutputFormat(zodSchema as never) },
+        system,
+        messages: [{ role: "user", content: user }],
+      });
+      return (res.parsed_output ?? null) as never;
+    },
+  };
+}
+
+function openaiClient(apiKey: string): LlmClient {
+  const client = new OpenAI({ apiKey });
+  return {
+    async complete(system, user, key, zodSchema) {
+      const res = await client.chat.completions.create({
+        model: DEFAULT_MODEL.openai,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: key, strict: true, schema: JSON_SCHEMAS[key] as Record<string, unknown> },
+        },
+      });
+      const content = res.choices[0]?.message?.content ?? "{}";
+      return zodSchema.parse(JSON.parse(content));
+    },
+  };
+}
+
+export function createPlanner(provider: AiProvider, apiKey: string) {
+  const llm: LlmClient = provider === "openai" ? openaiClient(apiKey) : anthropicClient(apiKey);
 
   return {
     /** Estime durée et charge cognitive de chaque tâche. */
     async estimateDurations(tasks: Task[]) {
-      const res = await client.messages.parse({
-        model: MODEL,
-        max_tokens: 4000,
-        output_config: {
-          effort: "low",
-          format: zodOutputFormat(estimateSchema),
-        },
-        system:
-          "Tu es un assistant de productivité. Estime une durée réaliste (minutes) " +
+      const out = await llm.complete(
+        "Tu es un assistant de productivité. Estime une durée réaliste (minutes) " +
           "et la charge cognitive (energy) pour chaque tâche. Réponds en français pour rationale. " +
           "Sois concret : une tâche floue de travail intellectuel dure rarement moins de 25 min.",
-        messages: [
-          {
-            role: "user",
-            content:
-              "Estime ces tâches. Renvoie un objet par tâche, en réutilisant l'id fourni.\n\n" +
-              tasks.map(taskLine).join("\n"),
-          },
-        ],
-      });
-      return res.parsed_output?.estimates ?? [];
+        "Estime ces tâches. Renvoie un objet par tâche, en réutilisant l'id fourni.\n\n" +
+          tasks.map(taskLine).join("\n"),
+        "estimate",
+        estimateSchema,
+        "low",
+      );
+      return out?.estimates ?? [];
     },
 
     /** Découpe une grosse tâche en sous-tâches actionnables. */
     async breakdownTask(task: Task) {
-      const res = await client.messages.parse({
-        model: MODEL,
-        max_tokens: 4000,
-        output_config: {
-          effort: "medium",
-          format: zodOutputFormat(breakdownSchema),
-        },
-        system:
-          "Tu es un assistant de productivité. Découpe la tâche en 2 à 6 sous-tâches " +
+      const out = await llm.complete(
+        "Tu es un assistant de productivité. Découpe la tâche en 2 à 6 sous-tâches " +
           "concrètes, séquentielles et réalisables, chacune avec une durée et une charge. " +
           "Titres en français, à l'impératif.",
-        messages: [{ role: "user", content: `Découpe cette tâche :\n${taskLine(task)}` }],
-      });
-      return res.parsed_output?.subtasks ?? [];
+        `Découpe cette tâche :\n${taskLine(task)}`,
+        "breakdown",
+        breakdownSchema,
+        "medium",
+      );
+      return out?.subtasks ?? [];
     },
 
     /** Conseils stratégiques pour la journée. */
     async advise(tasks: Task[], freeMinutes: number) {
-      const res = await client.messages.parse({
-        model: MODEL,
-        max_tokens: 4000,
-        thinking: { type: "adaptive" },
-        output_config: {
-          effort: "medium",
-          format: zodOutputFormat(adviceSchema),
-        },
-        system:
-          "Tu es un coach de productivité. À partir des tâches et du temps libre disponible, " +
+      const out = await llm.complete(
+        "Tu es un coach de productivité. À partir des tâches et du temps libre disponible, " +
           "donne un résumé d'une phrase et 3 à 5 conseils ordonnés et actionnables, en français. " +
           "Tiens compte des priorités, des échéances et de l'énergie.",
-        messages: [
-          {
-            role: "user",
-            content:
-              `Temps libre aujourd'hui : ${freeMinutes} minutes.\n\nTâches :\n` +
-              tasks.map(taskLine).join("\n"),
-          },
-        ],
-      });
-      return (
-        res.parsed_output ?? { summary: "", tips: [] as string[] }
+        `Temps libre aujourd'hui : ${freeMinutes} minutes.\n\nTâches :\n` +
+          tasks.map(taskLine).join("\n"),
+        "advice",
+        adviceSchema,
+        "medium",
       );
+      return out ?? { summary: "", tips: [] as string[] };
     },
   };
 }

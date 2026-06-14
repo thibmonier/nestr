@@ -1,9 +1,18 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { API_URL, api, clearSession, getSession, setSession } from "./api.js";
 
+export type AiProvider = "anthropic" | "openai";
+
 export interface MeStatus {
   googleConnected: boolean;
   appleConnected: boolean;
+  aiConfigured: boolean;
+  aiProvider: AiProvider | null;
+}
+
+/** Enregistre la clé IA de l'utilisateur (provider + clé), chiffrée côté serveur. */
+export function saveAiKey(provider: AiProvider, apiKey: string): Promise<{ ok: boolean }> {
+  return api("/me/ai", { method: "POST", body: { provider, apiKey } });
 }
 
 export function isLoggedIn(): boolean {
