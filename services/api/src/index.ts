@@ -12,6 +12,7 @@ import {
 } from "./calendars/google.js";
 import { fetchAppleEvents } from "./calendars/apple.js";
 import { decodeJwtPayload, decryptText, encryptText } from "./crypto.js";
+import { isAppRedirect } from "./redirect.js";
 import {
   createSession,
   getCredential,
@@ -115,14 +116,8 @@ app.post("/ai/advise", async (c) => {
 
 // --- Auth Google (login + connexion calendrier en une fois) ---
 
-/**
- * Cibles de retour autorisées (anti open-redirect) :
- * - desktop Tauri : serveur loopback `http://localhost:PORT`
- * - mobile Expo : deep-link applicatif `nestr://...`
- */
-const LOOPBACK_RE = /^http:\/\/(localhost|127\.0\.0\.1):\d+\/?$/;
-const APP_SCHEME_RE = /^nestr:\/\/[a-z0-9/_-]*$/i;
-const isAppRedirect = (url: string) => LOOPBACK_RE.test(url) || APP_SCHEME_RE.test(url);
+/** Émetteurs `iss` acceptés pour un id_token Google. */
+const GOOGLE_ISS = ["accounts.google.com", "https://accounts.google.com"];
 
 app.get("/auth/google", (c) => {
   // L'app (Tauri loopback ou Expo deep-link) passe sa cible de retour. On la
@@ -141,6 +136,15 @@ app.get("/auth/google/callback", async (c) => {
   const claims = tokens.id_token ? decodeJwtPayload(tokens.id_token) : {};
   const sub = claims.sub as string | undefined;
   if (!sub) return c.text("Identité Google introuvable", 400);
+
+  // Défense en profondeur : l'id_token vient de notre échange TLS authentifié,
+  // mais on vérifie quand même que les claims ciblent bien NOTRE client et un
+  // émetteur Google (rejette un token destiné à une autre app / un autre IdP).
+  const aud = claims.aud as string | undefined;
+  const iss = claims.iss as string | undefined;
+  if (aud !== cfg.clientId || !iss || !GOOGLE_ISS.includes(iss)) {
+    return c.text("Jeton Google invalide", 401);
+  }
 
   const user = await upsertUser(
     c.env.DB,
