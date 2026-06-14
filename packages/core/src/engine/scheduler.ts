@@ -177,6 +177,7 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       kind: "task",
       title: task.title,
       taskId: task.id,
+      ...(task.mode ? { mode: task.mode } : {}),
     });
 
     // Réduit le créneau, en réservant une pause après la tâche.

@@ -74,6 +74,13 @@ describe("scheduleDay", () => {
     expect(plan.unscheduled).toHaveLength(0);
   });
 
+  it("propage le mode de la tâche sur son bloc", () => {
+    const tasks = [task({ id: "call", mode: "phone", estimatedMinutes: 30 })];
+    const plan = scheduleDay({ date: DATE, tasks, events: [], preferences: prefs, now: NOW });
+    const tb = plan.blocks.find((b) => b.kind === "task")!;
+    expect(tb.mode).toBe("phone");
+  });
+
   it("respecte les événements d'agenda (busy)", () => {
     const events: CalendarEvent[] = [
       {

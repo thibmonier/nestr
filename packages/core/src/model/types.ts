@@ -77,6 +77,8 @@ export interface TimeBlock {
   title: string;
   taskId?: string;
   eventId?: string;
+  /** Vecteur de réalisation de la tâche (blocs `task`), pour l'affichage. */
+  mode?: TaskMode;
   allDay?: boolean;
   /** Pour les blocs d'agenda : source et nom du calendrier d'origine. */
   source?: CalendarSource;
