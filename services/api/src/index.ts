@@ -279,8 +279,10 @@ app.post("/calendars/apple/events", async (c) => {
 
 app.onError((err, c) => {
   if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 401);
+  // Détail loggé côté serveur uniquement ; le client reçoit un message générique
+  // (évite de fuiter messages d'erreur internes / bodies d'API tierces).
   console.error(err);
-  return c.json({ error: err.message }, 500);
+  return c.json({ error: "Erreur interne" }, 500);
 });
 
 export default app;

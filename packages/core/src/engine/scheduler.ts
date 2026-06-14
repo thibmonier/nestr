@@ -87,7 +87,9 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
     .map((e) => ({
       start: new Date(e.start).getTime(),
       end: new Date(e.end).getTime(),
-    }));
+    }))
+    // Ignore les events aux dates non parsables (sinon NaN → créneau faussé).
+    .filter((i) => Number.isFinite(i.start) && Number.isFinite(i.end) && i.end > i.start);
 
   // Jour de semaine planifié (0=dimanche … 6=samedi), à midi pour éviter les bords.
   const weekday = new Date(atLocal(date, "12:00")).getDay();
@@ -137,8 +139,15 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       continue;
     }
 
-    const durationMs =
-      (task.estimatedMinutes ?? preferences.defaultTaskMinutes) * MINUTE;
+    // Durée robuste : une estimation absente/invalide/≤0 (ex. NaN renvoyé par
+    // l'IA) retombe sur la durée par défaut plutôt que de produire un bloc
+    // corrompu ou de faire crasher toute la planification (toISO(NaN)).
+    const estMin = task.estimatedMinutes;
+    const minutes =
+      typeof estMin === "number" && Number.isFinite(estMin) && estMin > 0
+        ? estMin
+        : preferences.defaultTaskMinutes;
+    const durationMs = minutes * MINUTE;
 
     // Choisit le créneau compatible avec le contexte et le meilleur bonus.
     let best: { slot: FreeSlot; bonus: number } | null = null;

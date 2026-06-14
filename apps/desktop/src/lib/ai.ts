@@ -1,7 +1,5 @@
 import type { Energy, Task } from "@nestr/core";
-
-/** URL du Worker. Override via VITE_API_URL ; défaut = wrangler dev local. */
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+import { api } from "./api.js";
 
 export interface DurationEstimate {
   taskId: string;
@@ -21,33 +19,22 @@ export interface SubtaskProposal {
   energy: Energy;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`API ${res.status} : ${detail || res.statusText}`);
-  }
-  return res.json() as Promise<T>;
-}
-
+// Les endpoints /ai/* sont authentifiés (clé IA par utilisateur) : on passe par
+// `api()` qui ajoute le Bearer de session et gère le 401.
 export async function estimateDurations(
   tasks: Task[],
 ): Promise<DurationEstimate[]> {
-  const { estimates } = await post<{ estimates: DurationEstimate[] }>(
+  const { estimates } = await api<{ estimates: DurationEstimate[] }>(
     "/ai/estimate",
-    { tasks },
+    { method: "POST", body: { tasks } },
   );
   return estimates;
 }
 
 export async function breakdownTask(task: Task): Promise<SubtaskProposal[]> {
-  const { subtasks } = await post<{ subtasks: SubtaskProposal[] }>(
+  const { subtasks } = await api<{ subtasks: SubtaskProposal[] }>(
     "/ai/breakdown",
-    { task },
+    { method: "POST", body: { task } },
   );
   return subtasks;
 }
@@ -56,5 +43,8 @@ export async function advise(
   tasks: Task[],
   freeMinutes: number,
 ): Promise<PlanAdvice> {
-  return post<PlanAdvice>("/ai/advise", { tasks, freeMinutes });
+  return api<PlanAdvice>("/ai/advise", {
+    method: "POST",
+    body: { tasks, freeMinutes },
+  });
 }

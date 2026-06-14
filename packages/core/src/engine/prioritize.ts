@@ -16,12 +16,15 @@ export function scoreTask(task: Task, now: number): number {
 
   if (task.dueDate) {
     const due = new Date(task.dueDate).getTime();
-    const hoursLeft = (due - now) / 3_600_000;
-    if (hoursLeft <= 0)
-      score += 5000; // en retard → priorité maximale
-    else if (hoursLeft <= 24) score += 800;
-    else if (hoursLeft <= 72) score += 200;
-    else score += Math.max(0, 100 - hoursLeft / 24);
+    // Ignore une échéance non parsable (NaN) plutôt que de la traiter comme passée.
+    if (Number.isFinite(due)) {
+      const hoursLeft = (due - now) / 3_600_000;
+      if (hoursLeft <= 0)
+        score += 5000; // en retard → priorité maximale
+      else if (hoursLeft <= 24) score += 800;
+      else if (hoursLeft <= 72) score += 200;
+      else score += Math.max(0, 100 - hoursLeft / 24);
+    }
   }
 
   return score;
