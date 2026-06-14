@@ -18,6 +18,7 @@ import { useTasks } from "./hooks/useTasks.js";
 import { useAccount } from "./hooks/useAccount.js";
 import { useServerSync } from "./hooks/useServerSync.js";
 import { usePlanner } from "./hooks/usePlanner.js";
+import { useTimeTracking } from "./hooks/useTimeTracking.js";
 
 export function App() {
   const { tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer } =
@@ -61,6 +62,8 @@ export function App() {
     setError,
   });
   const { plan, weekPlan, advice, busy, breakdown } = planner;
+
+  const tracking = useTimeTracking(setTasks);
 
   function planNow() {
     return planScope === "semaine" ? planner.planWeek() : planner.planDay();
@@ -141,6 +144,10 @@ export function App() {
                 const t = tasks.find((x) => x.id === id);
                 if (t) setTaskModal({ task: t });
               }}
+              activeTaskId={tracking.activeTaskId}
+              elapsedMin={tracking.elapsedMin}
+              onStart={tracking.start}
+              onStop={tracking.stop}
               draggable
               onTaskDragStart={(id, e) => {
                 e.dataTransfer.setData("text/plain", id);
