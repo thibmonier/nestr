@@ -6,7 +6,7 @@ export type Energy = "low" | "medium" | "high";
 export type TaskMode = "video" | "phone" | "action" | "trip";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TimeOfDay = "morning" | "afternoon" | "evening" | "any";
-export type CalendarSource = "google" | "apple";
+export type CalendarSource = "google" | "apple" | "local";
 
 /** Une tâche à réaliser. Les champs optionnels peuvent être remplis par l'IA. */
 export interface Task {
@@ -63,6 +63,8 @@ export interface CalendarEvent {
   start: string;
   end: string;
   allDay?: boolean;
+  /** Lieu (rempli par l'ajout rapide ; absent pour la plupart des imports). */
+  location?: string;
   /** false = l'utilisateur reste disponible (ex. invitation déclinée). */
   busy: boolean;
 }

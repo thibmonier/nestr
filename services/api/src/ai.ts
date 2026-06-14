@@ -39,6 +39,18 @@ const adviceSchema = z.object({
   tips: z.array(z.string()),
 });
 
+const parseSchema = z.object({
+  kind: z.enum(["task", "event"]),
+  title: z.string(),
+  date: z.string().nullable(),
+  start: z.string().nullable(),
+  end: z.string().nullable(),
+  location: z.string().nullable(),
+  people: z.array(z.string()),
+  context: z.enum(["pro", "perso"]),
+  mode: z.enum(["video", "phone", "action", "trip"]).nullable(),
+});
+
 /* JSON Schemas explicites (mode strict OpenAI ; Anthropic utilise le zod). */
 const ENERGY = { type: "string", enum: ["low", "medium", "high"] } as const;
 const JSON_SCHEMAS = {
@@ -91,6 +103,22 @@ const JSON_SCHEMAS = {
       tips: { type: "array", items: { type: "string" } },
     },
     required: ["summary", "tips"],
+  },
+  parse: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      kind: { type: "string", enum: ["task", "event"] },
+      title: { type: "string" },
+      date: { type: ["string", "null"] },
+      start: { type: ["string", "null"] },
+      end: { type: ["string", "null"] },
+      location: { type: ["string", "null"] },
+      people: { type: "array", items: { type: "string" } },
+      context: { type: "string", enum: ["pro", "perso"] },
+      mode: { type: ["string", "null"], enum: ["video", "phone", "action", "trip", null] },
+    },
+    required: ["kind", "title", "date", "start", "end", "location", "people", "context", "mode"],
   },
 } as const;
 
@@ -184,6 +212,25 @@ export function createPlanner(provider: AiProvider, apiKey: string) {
         "medium",
       );
       return out?.subtasks ?? [];
+    },
+
+    /** Structure une phrase en langage naturel en tâche ou événement. */
+    async parseQuickAdd(text: string, todayISO: string) {
+      const entry = await llm.complete(
+        "Tu structures une saisie en langage naturel en tâche OU événement d'agenda. " +
+          "Choisis kind=event si la phrase décrit un rendez-vous daté avec un horaire ou des personnes " +
+          "(réunion, déjeuner, appel) ; sinon kind=task. " +
+          `Aujourd'hui = ${todayISO}. Résous les dates relatives (« mardi », « demain ») en YYYY-MM-DD. ` +
+          "Horaires en HH:mm 24h, null si absent. Déduis le mode : video (visio), phone (appel), " +
+          "trip (déplacement/présentiel hors bureau), action (par défaut). context=pro sauf indice perso. " +
+          "people = prénoms/noms cités. Titre court et clair, en français.",
+        text,
+        "parse",
+        parseSchema,
+        "low",
+      );
+      if (!entry) throw new Error("L'IA n'a pas pu structurer la phrase, reformule un peu.");
+      return entry;
     },
 
     /** Conseils stratégiques pour la journée. */

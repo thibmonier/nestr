@@ -6,7 +6,7 @@
  * base diffèrent. On les injecte → une seule source de vérité pour les
  * endpoints (évite les divergences type le bug « /ai/* sans Bearer »).
  */
-import type { CalendarEvent, PlanningPreferences, Task } from "@nestr/core";
+import type { CalendarEvent, ParsedEntry, PlanningPreferences, Task } from "@nestr/core";
 import type {
   AiProvider,
   DurationEstimate,
@@ -31,6 +31,7 @@ export interface NestrClient {
   estimateDurations(tasks: Task[]): Promise<DurationEstimate[]>;
   breakdownTask(task: Task): Promise<SubtaskProposal[]>;
   advise(tasks: Task[], freeMinutes: number): Promise<PlanAdvice>;
+  parseQuickAdd(text: string, todayISO: string): Promise<ParsedEntry>;
   fetchDayEvents(start: string, end: string): Promise<CalendarEvent[]>;
   pullTasks(): Promise<Task[]>;
   pushTasks(tasks: Task[]): Promise<{ ok: boolean }>;
@@ -105,6 +106,14 @@ export function createClient(opts: ClientOptions): NestrClient {
         method: "POST",
         body: { tasks, freeMinutes },
       }),
+
+    async parseQuickAdd(text, todayISO) {
+      const { entry } = await api<{ entry: ParsedEntry }>("/ai/parse", {
+        method: "POST",
+        body: { text, todayISO },
+      });
+      return entry;
+    },
 
     /** Événements de toutes les sources connectées ; source non configurée ignorée. */
     async fetchDayEvents(start, end) {

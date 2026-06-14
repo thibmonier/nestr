@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CalendarEvent } from "@nestr/core";
 import { fetchDayEvents } from "../lib/calendars.js";
 import { hhmm, todayISO } from "../lib/format.js";
@@ -12,20 +12,22 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
  *  `selectedDate` est piloté par le parent (sync avec la vue principale). */
 export function CalendarPanel({
   selectedDate,
+  localEvents,
   onSelectDate,
   onClose,
 }: {
   selectedDate: string;
+  /** Événements créés localement (ajout rapide), fusionnés à l'agenda du jour. */
+  localEvents: CalendarEvent[];
   onSelectDate: (iso: string) => void;
   onClose: () => void;
 }) {
   const selectedISO = selectedDate;
   const [viewYear, setViewYear] = useState(() => Number(selectedISO.slice(0, 4)));
   const [viewMonth, setViewMonth] = useState(() => Number(selectedISO.slice(5, 7)) - 1);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [remoteEvents, setRemoteEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Recharge les événements quand le jour sélectionné change.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -33,9 +35,11 @@ export function CalendarPanel({
     const end = new Date(`${selectedISO}T23:59:59`).toISOString();
     fetchDayEvents(start, end)
       .then((ev) => {
-        if (!cancelled) setEvents(ev.slice().sort((a, b) => a.start.localeCompare(b.start)));
+        if (!cancelled) setRemoteEvents(ev);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setRemoteEvents([]);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -43,6 +47,13 @@ export function CalendarPanel({
       cancelled = true;
     };
   }, [selectedISO]);
+
+  const events = useMemo(() => {
+    const start = new Date(`${selectedISO}T00:00:00`).toISOString();
+    const end = new Date(`${selectedISO}T23:59:59`).toISOString();
+    const local = localEvents.filter((e) => e.start >= start && e.start <= end);
+    return [...remoteEvents, ...local].sort((a, b) => a.start.localeCompare(b.start));
+  }, [remoteEvents, localEvents, selectedISO]);
 
   function shiftMonth(delta: number) {
     let m = viewMonth + delta;
@@ -148,7 +159,7 @@ export function CalendarPanel({
           <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
             {events.map((e) => (
               <div key={e.id} style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
-                <span style={{ marginTop: "0.3rem", width: 8, height: 8, borderRadius: "var(--radius-pill)", background: e.source === "google" ? "var(--cal-google-fg)" : "var(--cal-apple-fg)", flexShrink: 0 }} />
+                <span style={{ marginTop: "0.3rem", width: 8, height: 8, borderRadius: "var(--radius-pill)", background: e.source === "google" ? "var(--cal-google-fg)" : e.source === "apple" ? "var(--cal-apple-fg)" : "var(--block-event)", flexShrink: 0 }} />
                 <div>
                   <div style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", fontWeight: "var(--fw-medium)" }}>{e.title}</div>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>

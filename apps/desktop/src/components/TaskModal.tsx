@@ -32,10 +32,10 @@ function daysPreset(wd?: number[]): keyof typeof DAY_PRESETS {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
       <span style={{ fontSize: "var(--text-xs)", fontWeight: "var(--fw-medium)", color: "var(--text-muted)" }}>{label}</span>
       {children}
-    </label>
+    </div>
   );
 }
 
