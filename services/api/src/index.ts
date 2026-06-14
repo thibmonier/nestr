@@ -114,6 +114,17 @@ app.post("/ai/advise", async (c) => {
   return c.json(await p.advise(tasks, freeMinutes ?? 0));
 });
 
+app.post("/ai/parse", async (c) => {
+  const { text, todayISO } = await c.req.json<{ text: string; todayISO?: string }>();
+  if (typeof text !== "string" || !text.trim()) {
+    return c.json({ error: "text requis" }, 400);
+  }
+  const p = await plannerFor(c);
+  if (!p) return c.json(NO_AI, 400);
+  const today = todayISO ?? new Date().toISOString().slice(0, 10);
+  return c.json({ entry: await p.parseQuickAdd(text.trim(), today) });
+});
+
 // --- Auth Google (login + connexion calendrier en une fois) ---
 
 /** Émetteurs `iss` acceptés pour un id_token Google. */

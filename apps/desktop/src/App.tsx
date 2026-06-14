@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
-import type { PlanningPreferences, Task } from "@nestr/core";
+import {
+  parsedToEvent,
+  parsedToTask,
+  type ParsedEntry,
+  type PlanningPreferences,
+  type Task,
+} from "@nestr/core";
 import { TaskModal } from "./components/TaskModal.js";
 import { TaskList } from "./components/TaskList.js";
+import { QuickAdd } from "./components/QuickAdd.js";
 import { CalendarPanel } from "./components/CalendarPanel.js";
 import { DayTimeline } from "./components/DayTimeline.js";
 import { WeekView } from "./components/WeekView.js";
@@ -12,10 +19,12 @@ import { Button } from "./design/components/forms/Button.js";
 import { Icon } from "./design/components/foundation/Icon.js";
 import { AdvicePanel } from "./design/components/feedback/AdvicePanel.js";
 import { SegmentedControl } from "./design/components/navigation/SegmentedControl.js";
-import { loadPreferences, savePreferences } from "./lib/storage.js";
+import { loadPreferences, newId, savePreferences } from "./lib/storage.js";
+import { parseQuickAdd } from "./lib/ai.js";
 import { todayISO } from "./lib/format.js";
 import { resolvedTheme, setTheme, type Theme } from "./lib/theme.js";
 import { useTasks } from "./hooks/useTasks.js";
+import { useLocalEvents } from "./hooks/useLocalEvents.js";
 import { useAccount } from "./hooks/useAccount.js";
 import { useServerSync } from "./hooks/useServerSync.js";
 import { usePlanner } from "./hooks/usePlanner.js";
@@ -25,6 +34,7 @@ import { useReminders } from "./hooks/useReminders.js";
 export function App() {
   const { tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer, deferLater } =
     useTasks();
+  const localEvents = useLocalEvents();
   const [prefs, setPrefs] = useState<PlanningPreferences>(() => loadPreferences());
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +71,7 @@ export function App() {
     prefs,
     me,
     selectedDate,
+    localEvents: localEvents.events,
     setTasks,
     setError,
   });
@@ -71,6 +82,17 @@ export function App() {
 
   function planNow() {
     return planScope === "semaine" ? planner.planWeek() : planner.planDay();
+  }
+
+  /** Validation de l'ajout rapide IA : crée la tâche ou l'événement, puis replanifie. */
+  function confirmQuickAdd(entry: ParsedEntry) {
+    const opts = { id: newId(), now: Date.now(), todayISO: todayISO() };
+    if (entry.kind === "event") {
+      localEvents.addEvent(parsedToEvent(entry, opts));
+    } else {
+      saveTask(parsedToTask(entry, opts));
+    }
+    void planner.planDay(selectedDate, false);
   }
 
   /** Clic sur un jour du calendrier : sync la vue principale (planifie ce jour). */
@@ -132,6 +154,11 @@ export function App() {
           {/* Héros : plan du jour (vue principale) */}
           <main className="min-w-0 flex-1 px-8 py-8">
             <section className="mx-auto flex max-w-3xl flex-col gap-4">
+              <QuickAdd
+                aiConfigured={!!me?.aiConfigured}
+                onParse={parseQuickAdd}
+                onConfirm={confirmQuickAdd}
+              />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>
                   {weekPlan ? "Plan de la semaine" : "Plan du jour"}

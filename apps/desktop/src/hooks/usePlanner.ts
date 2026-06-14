@@ -7,6 +7,7 @@ import {
   addDays,
   scheduleDay,
   scheduleRange,
+  type CalendarEvent,
   type DailyPlan,
   type PlanningPreferences,
   type Task,
@@ -24,12 +25,19 @@ interface PlannerOptions {
   prefs: PlanningPreferences;
   me: MeStatus | null;
   selectedDate: string;
+  /** Événements créés localement (ajout rapide), fusionnés au plan. */
+  localEvents: CalendarEvent[];
   setTasks: Dispatch<SetStateAction<Task[]>>;
   setError: (s: string | null) => void;
 }
 
 export function usePlanner(opts: PlannerOptions) {
-  const { tasks, pending, prefs, me, selectedDate, setTasks, setError } = opts;
+  const { tasks, pending, prefs, me, selectedDate, localEvents, setTasks, setError } = opts;
+
+  /** Événements locaux dont le début tombe dans [startISO, endISO]. */
+  function localInRange(startISO: string, endISO: string): CalendarEvent[] {
+    return localEvents.filter((e) => e.start >= startISO && e.start <= endISO);
+  }
 
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [weekPlan, setWeekPlan] = useState<WeekPlan | null>(null);
@@ -48,7 +56,7 @@ export function usePlanner(opts: PlannerOptions) {
     try {
       const start = new Date(`${date}T00:00:00`).toISOString();
       const end = new Date(`${date}T23:59:59`).toISOString();
-      const events = await fetchDayEvents(start, end);
+      const events = [...(await fetchDayEvents(start, end)), ...localInRange(start, end)];
 
       const generated = scheduleDay({
         date,
@@ -81,7 +89,10 @@ export function usePlanner(opts: PlannerOptions) {
       const lastDay = addDays(start, DAYS - 1);
       const rangeEnd = new Date(`${lastDay}T23:59:59`).toISOString();
 
-      const events = await fetchDayEvents(rangeStart, rangeEnd);
+      const events = [
+        ...(await fetchDayEvents(rangeStart, rangeEnd)),
+        ...localInRange(rangeStart, rangeEnd),
+      ];
       const eventsByDate: Record<string, typeof events> = {};
       for (const e of events) {
         const key = localDate(e.start);

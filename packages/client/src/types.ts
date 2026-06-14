@@ -1,6 +1,8 @@
 /** Types partagés du client Nestr (API Worker, IA, compte). */
 import type { Energy } from "@nestr/core";
 
+export type { ParsedEntry } from "@nestr/core";
+
 export type AiProvider = "anthropic" | "openai";
 
 /** État du compte renvoyé par `/me`. */

@@ -7,8 +7,8 @@ export interface TimelineBlockProps {
   title: string;
   /** Task slot (indigo bar) or calendar event (violet bar). @default "task" */
   kind?: "task" | "event";
-  /** For events: which calendar it came from. */
-  source?: "google" | "apple";
+  /** For events: which calendar it came from ("local" = ajout rapide). */
+  source?: "google" | "apple" | "local";
   /** For events: human calendar name, e.g. "Perso". */
   calendarName?: string;
   style?: React.CSSProperties;
@@ -39,7 +39,7 @@ export function TimelineBlock({ time, title, kind = "task", source, calendarName
         </p>
         {kind === "event" ? (
           <span style={{ marginTop: "0.25rem", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-            <MetaTag tone={source === "google" ? "google" : "apple"}>
+            <MetaTag tone={source === "google" ? "google" : source === "apple" ? "apple" : "neutral"}>
               {source === "google" ? "Google" : source === "apple" ? "Apple" : "Agenda"}
             </MetaTag>
             {calendarName && <span style={{ fontSize: "var(--text-xs)", color: "var(--text-subtle)" }}>{calendarName}</span>}

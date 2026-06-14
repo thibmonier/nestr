@@ -3,8 +3,9 @@ import { client } from "./api.js";
 
 export type {
   DurationEstimate,
+  ParsedEntry,
   PlanAdvice,
   SubtaskProposal,
 } from "@nestr/client";
 
-export const { estimateDurations, breakdownTask, advise } = client;
+export const { estimateDurations, breakdownTask, advise, parseQuickAdd } = client;
