@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import {
+  buildReminders,
   scheduleDay,
   type CalendarEvent,
   type DailyPlan,
@@ -19,6 +20,7 @@ import {
 import { Button, Card, EmptyState } from "../components/ui";
 import { advise, type PlanAdvice } from "../lib/ai";
 import { fetchDayEvents } from "../lib/calendars";
+import { syncReminders } from "../lib/notifications";
 import { dayLabel, durationLabel, hhmm, todayISO } from "../lib/format";
 import { useTheme } from "../theme";
 
@@ -63,6 +65,8 @@ export function PlanScreen({
     });
     setPlan(result);
     setLoading(false);
+    // Reprogramme les rappels locaux (5 min avant chaque tâche/événement).
+    void syncReminders(buildReminders(result, { now: Date.now(), leadMinutes: 5 }));
   }, [date, tasks, preferences]);
 
   useEffect(() => {

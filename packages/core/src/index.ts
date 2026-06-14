@@ -4,4 +4,5 @@ export * from "./model/time.js";
 export * from "./engine/prioritize.js";
 export * from "./engine/scheduler.js";
 export * from "./engine/tracking.js";
+export * from "./engine/reminders.js";
 export * from "./ai/types.js";

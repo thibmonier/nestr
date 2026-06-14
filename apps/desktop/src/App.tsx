@@ -19,6 +19,7 @@ import { useAccount } from "./hooks/useAccount.js";
 import { useServerSync } from "./hooks/useServerSync.js";
 import { usePlanner } from "./hooks/usePlanner.js";
 import { useTimeTracking } from "./hooks/useTimeTracking.js";
+import { useReminders } from "./hooks/useReminders.js";
 
 export function App() {
   const { tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer } =
@@ -64,6 +65,7 @@ export function App() {
   const { plan, weekPlan, advice, busy, breakdown } = planner;
 
   const tracking = useTimeTracking(setTasks);
+  useReminders(plan);
 
   function planNow() {
     return planScope === "semaine" ? planner.planWeek() : planner.planDay();
