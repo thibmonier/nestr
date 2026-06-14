@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   parsedToEvent,
   parsedToTask,
@@ -84,6 +84,15 @@ export function App() {
     return planScope === "semaine" ? planner.planWeek() : planner.planDay();
   }
 
+  const pendingReplan = useRef(false);
+
+  useEffect(() => {
+    if (pendingReplan.current) {
+      pendingReplan.current = false;
+      void planner.planDay(selectedDate, false);
+    }
+  }, [tasks, localEvents.events]);
+
   /** Validation de l'ajout rapide IA : crée la tâche ou l'événement, puis replanifie. */
   function confirmQuickAdd(entry: ParsedEntry) {
     const opts = { id: newId(), now: Date.now(), todayISO: todayISO() };
@@ -92,7 +101,7 @@ export function App() {
     } else {
       saveTask(parsedToTask(entry, opts));
     }
-    void planner.planDay(selectedDate, false);
+    pendingReplan.current = true;
   }
 
   /** Clic sur un jour du calendrier : sync la vue principale (planifie ce jour). */

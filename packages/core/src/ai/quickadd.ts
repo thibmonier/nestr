@@ -10,6 +10,17 @@ export interface QuickAddOptions {
   todayISO: string;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Valide une date YYYY-MM-DD ; retourne `fallback` si invalide. */
+function safeDate(date: string | null, fallback: string | null): string | null {
+  if (date && ISO_DATE.test(date)) {
+    const d = new Date(`${date}T00:00:00`);
+    if (!Number.isNaN(d.getTime())) return date;
+  }
+  return fallback;
+}
+
 /** "HH:mm" → minutes depuis minuit, ou null si invalide. */
 function toMinutes(hhmm: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
@@ -48,7 +59,8 @@ export function parsedToTask(p: ParsedEntry, opts: QuickAddOptions): Task {
     createdAt: new Date(opts.now).toISOString(),
   };
 
-  if (p.date) task.dueDate = new Date(`${p.date}T23:59:59`).toISOString();
+  const validDate = safeDate(p.date, null);
+  if (validDate) task.dueDate = new Date(`${validDate}T23:59:59`).toISOString();
 
   const startMin = p.start ? toMinutes(p.start) : null;
   const endMin = p.end ? toMinutes(p.end) : null;
@@ -65,10 +77,11 @@ export function parsedToTask(p: ParsedEntry, opts: QuickAddOptions): Task {
  * horaires manquants (défaut 09:00, durée 60 min) et la date (aujourd'hui).
  */
 export function parsedToEvent(p: ParsedEntry, opts: QuickAddOptions): CalendarEvent {
-  const dateISO = p.date ?? opts.todayISO;
+  const dateISO = safeDate(p.date, opts.todayISO)!;
   const startMin = (p.start ? toMinutes(p.start) : null) ?? 9 * 60;
   const endFromText = p.end ? toMinutes(p.end) : null;
-  const endMin = endFromText !== null && endFromText > startMin ? endFromText : startMin + 60;
+  const rawEnd = endFromText !== null && endFromText > startMin ? endFromText : startMin + 60;
+  const endMin = Math.min(rawEnd, 1439);
 
   const event: CalendarEvent = {
     id: opts.id,

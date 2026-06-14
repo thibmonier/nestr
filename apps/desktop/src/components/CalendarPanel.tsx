@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CalendarEvent } from "@nestr/core";
 import { fetchDayEvents } from "../lib/calendars.js";
 import { hhmm, todayISO } from "../lib/format.js";
@@ -25,22 +25,20 @@ export function CalendarPanel({
   const selectedISO = selectedDate;
   const [viewYear, setViewYear] = useState(() => Number(selectedISO.slice(0, 4)));
   const [viewMonth, setViewMonth] = useState(() => Number(selectedISO.slice(5, 7)) - 1);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [remoteEvents, setRemoteEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Recharge les événements quand le jour sélectionné change.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     const start = new Date(`${selectedISO}T00:00:00`).toISOString();
     const end = new Date(`${selectedISO}T23:59:59`).toISOString();
-    const local = localEvents.filter((e) => e.start >= start && e.start <= end);
     fetchDayEvents(start, end)
       .then((ev) => {
-        if (!cancelled) setEvents([...ev, ...local].sort((a, b) => a.start.localeCompare(b.start)));
+        if (!cancelled) setRemoteEvents(ev);
       })
       .catch(() => {
-        if (!cancelled) setEvents(local.slice().sort((a, b) => a.start.localeCompare(b.start)));
+        if (!cancelled) setRemoteEvents([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -48,7 +46,14 @@ export function CalendarPanel({
     return () => {
       cancelled = true;
     };
-  }, [selectedISO, localEvents]);
+  }, [selectedISO]);
+
+  const events = useMemo(() => {
+    const start = new Date(`${selectedISO}T00:00:00`).toISOString();
+    const end = new Date(`${selectedISO}T23:59:59`).toISOString();
+    const local = localEvents.filter((e) => e.start >= start && e.start <= end);
+    return [...remoteEvents, ...local].sort((a, b) => a.start.localeCompare(b.start));
+  }, [remoteEvents, localEvents, selectedISO]);
 
   function shiftMonth(delta: number) {
     let m = viewMonth + delta;

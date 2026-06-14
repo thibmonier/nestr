@@ -82,6 +82,7 @@ export function DayTimeline({
               kind={b.kind === "event" ? "event" : "task"}
               source={b.source}
               calendarName={b.calendarName}
+              mode={b.mode}
             />
           ))}
         </div>

@@ -265,8 +265,9 @@ function rangeReason(
 export function scheduleRange(input: ScheduleRangeInput): WeekPlan {
   const { startDate, days, eventsByDate, preferences, now } = input;
 
+  const rangeEnd = addDays(startDate, days - 1);
   let remaining = prioritize(
-    input.tasks.filter((t) => t.status !== "done"),
+    input.tasks.filter((t) => t.status !== "done" && !isDeferredFrom(t, rangeEnd)),
     now,
   );
 

@@ -24,7 +24,8 @@ function weekdaysLabel(days: number[]): string {
 }
 
 function dueLabel(iso: string): string {
-  return new Date(iso).toLocaleDateString("fr-FR", {
+  const safe = iso.includes("T") ? iso : `${iso}T12:00:00`;
+  return new Date(safe).toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "short",
   });

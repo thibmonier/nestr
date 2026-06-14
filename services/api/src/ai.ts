@@ -216,7 +216,7 @@ export function createPlanner(provider: AiProvider, apiKey: string) {
 
     /** Structure une phrase en langage naturel en tâche ou événement. */
     async parseQuickAdd(text: string, todayISO: string) {
-      return llm.complete(
+      const entry = await llm.complete(
         "Tu structures une saisie en langage naturel en tâche OU événement d'agenda. " +
           "Choisis kind=event si la phrase décrit un rendez-vous daté avec un horaire ou des personnes " +
           "(réunion, déjeuner, appel) ; sinon kind=task. " +
@@ -229,6 +229,8 @@ export function createPlanner(provider: AiProvider, apiKey: string) {
         parseSchema,
         "low",
       );
+      if (!entry) throw new Error("L'IA n'a pas pu structurer la phrase, reformule un peu.");
+      return entry;
     },
 
     /** Conseils stratégiques pour la journée. */

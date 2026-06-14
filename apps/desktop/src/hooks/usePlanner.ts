@@ -138,6 +138,7 @@ export function usePlanner(opts: PlannerOptions) {
       kind: "task" as const,
       title: task.title,
       taskId,
+      ...(task.mode ? { mode: task.mode } : {}),
     };
     setWeekPlan(null);
     setPlan((prev) => {
