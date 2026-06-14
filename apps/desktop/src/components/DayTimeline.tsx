@@ -3,6 +3,7 @@ import type { DailyPlan, TimeBlock } from "@nestr/core";
 import { hhmm, todayISO } from "../lib/format.js";
 import { EmptyState } from "../design/components/feedback/EmptyState.js";
 import { TimelineBlock } from "../design/components/data-display/TimelineBlock.js";
+import { Icon } from "../design/components/foundation/Icon.js";
 
 export type TimelineMode = "compact" | "proportional";
 
@@ -259,9 +260,16 @@ function ProportionalTimeline({
                 overflow: "hidden",
               }}
             >
-              <span style={{ fontFamily: "var(--font-sans)", fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {b.title}
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", minWidth: 0 }}>
+                <span style={{ flex: 1, minWidth: 0, fontFamily: "var(--font-sans)", fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {b.title}
+                </span>
+                {b.mode && (
+                  <span style={{ color: "var(--text-muted)", flexShrink: 0, display: "inline-flex" }}>
+                    <Icon name={b.mode} size={14} />
+                  </span>
+                )}
+              </div>
               {!compact && (
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
                   <span>{hhmm(b.start)}–{hhmm(b.end)}</span>

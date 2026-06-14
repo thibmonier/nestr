@@ -26,6 +26,8 @@ export interface TaskRowProps {
   tags?: string[];
   /** Formatted due date, e.g. "15 juin". */
   due?: string;
+  /** Formatted deferral date, e.g. "15 juin" — shown when the task is postponed. */
+  deferred?: string;
   /** Allowed-days label, e.g. "Lun–Ven". */
   days?: string;
   onToggle?: () => void;
@@ -33,6 +35,8 @@ export interface TaskRowProps {
   onEdit?: () => void;
   /** Deprioritize / push to later (overflow menu → Reporter à demain). */
   onDefer?: () => void;
+  /** Push further out (overflow menu → Reporter à plus tard). */
+  onDeferLater?: () => void;
   onBreakdown?: () => void;
   onRemove?: () => void;
   /** True when this task is the one currently being timed. */
@@ -79,10 +83,12 @@ export function TaskRow({
   mode,
   tags = [],
   due,
+  deferred,
   days,
   onToggle,
   onEdit,
   onDefer,
+  onDeferLater,
   onBreakdown,
   onRemove,
   tracking = false,
@@ -195,6 +201,7 @@ export function TaskRow({
             </span>
           )}
           {due && <MetaTag tone="due" icon={<Icon name="clockArrow" size={11} />}>{due}</MetaTag>}
+          {deferred && <MetaTag tone="days" icon={<Icon name="clockArrow" size={11} />}>Reporté · {deferred}</MetaTag>}
           {days && <MetaTag tone="days" icon={<Icon name="calendar" size={11} />}>{days}</MetaTag>}
           {tags.map((t) => <Tag key={t}>{t}</Tag>)}
         </div>
@@ -274,6 +281,7 @@ export function TaskRow({
           }}>
             {onEdit && menuItem("pencil", "Modifier", onEdit)}
             {onDefer && menuItem("clockArrow", "Reporter à demain", onDefer)}
+            {onDeferLater && menuItem("calendar", "Reporter à plus tard", onDeferLater)}
             {onBreakdown && menuItem("scissors", "Découper (IA)", onBreakdown)}
             {onRemove && <div style={{ height: 1, background: "var(--border)", margin: "0.3rem 0" }}></div>}
             {onRemove && menuItem("trash", "Supprimer", onRemove, true)}

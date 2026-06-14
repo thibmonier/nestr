@@ -5,4 +5,5 @@ export * from "./engine/prioritize.js";
 export * from "./engine/scheduler.js";
 export * from "./engine/tracking.js";
 export * from "./engine/reminders.js";
+export * from "./engine/deferral.js";
 export * from "./ai/types.js";

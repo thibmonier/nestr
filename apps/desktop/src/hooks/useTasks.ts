@@ -1,6 +1,6 @@
 /** État des tâches : persistance locale, CRUD, dérivés (pending, tags). */
 import { useEffect, useMemo, useState } from "react";
-import { addDays, type Task } from "@nestr/core";
+import { addDays, deferTask, type Task } from "@nestr/core";
 import { loadTasks, saveTasks } from "../lib/storage.js";
 import { todayISO } from "../lib/format.js";
 
@@ -43,13 +43,22 @@ export function useTasks() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }
 
-  /** Reporte/dépriorise une tâche : échéance repoussée à demain. */
-  function defer(id: string) {
-    const tomorrow = new Date(`${addDays(todayISO(), 1)}T23:59:59`).toISOString();
+  /** Reporte une tâche à une date : la sort du plan jusqu'à ce jour. */
+  function deferTo(id: string, dateISO: string) {
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, dueDate: tomorrow } : t)),
+      prev.map((t) => (t.id === id ? deferTask(t, dateISO) : t)),
     );
   }
+  /** Dépriorise à demain. */
+  function defer(id: string) {
+    deferTo(id, addDays(todayISO(), 1));
+  }
+  /** Dépriorise à plus tard (une semaine). */
+  function deferLater(id: string) {
+    deferTo(id, addDays(todayISO(), 7));
+  }
 
-  return { tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer };
+  return {
+    tasks, setTasks, pending, allTags, saveTask, toggle, remove, defer, deferLater,
+  };
 }

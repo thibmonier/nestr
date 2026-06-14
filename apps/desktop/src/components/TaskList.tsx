@@ -1,9 +1,10 @@
 import { useState, type DragEvent } from "react";
-import type { Task } from "@nestr/core";
+import { isDeferredFrom, type Task } from "@nestr/core";
 import { TaskRow, type TaskContext } from "../design/components/data-display/TaskRow.js";
 import { EmptyState } from "../design/components/feedback/EmptyState.js";
 import { SegmentedControl } from "../design/components/navigation/SegmentedControl.js";
 import { Input } from "../design/components/forms/Input.js";
+import { todayISO } from "../lib/format.js";
 
 /** Combien de tâches affichées avant « Voir plus » (limite la liste longue). */
 const PAGE = 25;
@@ -40,6 +41,7 @@ export function TaskList({
   onRemove,
   onBreakdown,
   onDefer,
+  onDeferLater,
   onEditStart,
   activeTaskId,
   elapsedMin,
@@ -54,6 +56,7 @@ export function TaskList({
   onRemove: (id: string) => void;
   onBreakdown: (task: Task) => void;
   onDefer: (id: string) => void;
+  onDeferLater: (id: string) => void;
   onEditStart: (id: string) => void;
   activeTaskId?: string | null;
   elapsedMin?: number;
@@ -129,6 +132,9 @@ export function TaskList({
                 context={asContext(t.context)}
                 tags={t.tags}
                 due={t.dueDate ? dueLabel(t.dueDate) : undefined}
+                deferred={
+                  isDeferredFrom(t, todayISO()) ? dueLabel(t.deferredTo!) : undefined
+                }
                 days={
                   t.allowedWeekdays && t.allowedWeekdays.length > 0
                     ? weekdaysLabel(t.allowedWeekdays)
@@ -145,6 +151,7 @@ export function TaskList({
                 onToggle={() => onToggle(t.id)}
                 onEdit={() => onEditStart(t.id)}
                 onDefer={() => onDefer(t.id)}
+                onDeferLater={() => onDeferLater(t.id)}
                 onBreakdown={t.status !== "done" ? () => onBreakdown(t) : undefined}
                 onRemove={() => onRemove(t.id)}
               />

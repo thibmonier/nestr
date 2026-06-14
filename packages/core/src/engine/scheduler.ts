@@ -18,6 +18,7 @@ import {
   toISO,
 } from "../model/time.js";
 import { prioritize } from "./prioritize.js";
+import { isDeferredFrom } from "./deferral.js";
 
 export interface ScheduleInput {
   /** Jour à planifier, "YYYY-MM-DD". */
@@ -113,8 +114,9 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
     0,
   );
 
+  // Exclut les tâches reportées (deferredTo) à un jour postérieur à celui-ci.
   const ordered = prioritize(
-    input.tasks.filter((t) => t.status !== "done"),
+    input.tasks.filter((t) => t.status !== "done" && !isDeferredFrom(t, date)),
     now,
   );
 
@@ -177,6 +179,7 @@ export function scheduleDay(input: ScheduleInput): DailyPlan {
       kind: "task",
       title: task.title,
       taskId: task.id,
+      ...(task.mode ? { mode: task.mode } : {}),
     });
 
     // Réduit le créneau, en réservant une pause après la tâche.

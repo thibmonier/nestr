@@ -23,6 +23,12 @@ export interface Task {
   mode?: TaskMode;
   /** Échéance au format ISO (date ou datetime). */
   dueDate?: string;
+  /**
+   * Date de report (dépriorisation), format ISO date "YYYY-MM-DD". La tâche est
+   * masquée du plan des jours strictement antérieurs à cette date. Absent = non
+   * reportée.
+   */
+  deferredTo?: string;
   /** Charge cognitive — sert à placer les tâches lourdes aux heures de forte énergie. */
   energy?: Energy;
   /** Moment préféré dans la journée. */
@@ -71,6 +77,8 @@ export interface TimeBlock {
   title: string;
   taskId?: string;
   eventId?: string;
+  /** Vecteur de réalisation de la tâche (blocs `task`), pour l'affichage. */
+  mode?: TaskMode;
   allDay?: boolean;
   /** Pour les blocs d'agenda : source et nom du calendrier d'origine. */
   source?: CalendarSource;
