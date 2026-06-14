@@ -2,7 +2,9 @@ import { useState, type CSSProperties } from "react";
 import type { AvailabilityWindow, PlanningPreferences } from "@nestr/core";
 import { Modal } from "../design/components/feedback/Modal.js";
 import { Input } from "../design/components/forms/Input.js";
+import { Select } from "../design/components/forms/Select.js";
 import { Button } from "../design/components/forms/Button.js";
+import type { AiProvider } from "../lib/auth.js";
 import { IconButton } from "../design/components/forms/IconButton.js";
 import { Icon } from "../design/components/foundation/Icon.js";
 
@@ -35,6 +37,9 @@ export function SettingsPanel({
   onConnectApple,
   onSignIn,
   onSignOut,
+  aiConfigured,
+  aiProvider,
+  onSaveAiKey,
 }: {
   prefs: PlanningPreferences;
   onChange: (p: PlanningPreferences) => void;
@@ -44,8 +49,29 @@ export function SettingsPanel({
   onConnectApple: (appleId: string, appPassword: string) => Promise<void>;
   onSignIn: () => void;
   onSignOut: () => void;
+  aiConfigured: boolean;
+  aiProvider: AiProvider | null;
+  onSaveAiKey: (provider: AiProvider, apiKey: string) => Promise<void>;
 }) {
   const [newContext, setNewContext] = useState("");
+  const [aiProviderSel, setAiProviderSel] = useState<AiProvider>(aiProvider ?? "anthropic");
+  const [aiKey, setAiKey] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+
+  async function submitAiKey() {
+    setAiBusy(true);
+    setAiMsg(null);
+    try {
+      await onSaveAiKey(aiProviderSel, aiKey.trim());
+      setAiKey("");
+      setAiMsg("Clé IA enregistrée.");
+    } catch (e) {
+      setAiMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAiBusy(false);
+    }
+  }
   const [appleId, setAppleId] = useState("");
   const [applePassword, setApplePassword] = useState("");
   const [appleBusy, setAppleBusy] = useState(false);
@@ -117,6 +143,47 @@ export function SettingsPanel({
           </div>
         ) : (
           <Button variant="primary" onClick={onSignIn}>Se connecter (Google)</Button>
+        )}
+      </section>
+
+      {/* Clé IA (par utilisateur) */}
+      <section style={{ marginBottom: "var(--space-6)" }}>
+        <h3 style={eyebrow}>Intelligence artificielle</h3>
+        {!loggedIn ? (
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>
+            Connecte-toi d'abord pour enregistrer ta clé IA.
+          </p>
+        ) : (
+          <>
+            <p style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>
+              {aiConfigured
+                ? `Clé ${aiProvider === "openai" ? "OpenAI" : "Anthropic"} configurée. Saisis-en une nouvelle pour la remplacer.`
+                : "Saisis ta clé API pour activer l'estimation, le découpage et les conseils."}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "var(--space-2)" }}>
+              <Select
+                label="Fournisseur"
+                value={aiProviderSel}
+                onChange={(e) => setAiProviderSel(e.target.value as AiProvider)}
+              >
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="openai">OpenAI (GPT)</option>
+              </Select>
+              <Input
+                type="password"
+                value={aiKey}
+                onChange={(e) => setAiKey(e.target.value)}
+                placeholder={aiProviderSel === "openai" ? "sk-…" : "sk-ant-…"}
+                wrapperStyle={{ flex: 1, minWidth: "14rem" }}
+              />
+              <Button variant="primary" onClick={submitAiKey} disabled={aiBusy || aiKey.trim().length < 8}>
+                {aiBusy ? "…" : "Enregistrer"}
+              </Button>
+            </div>
+            {aiMsg && (
+              <p style={{ marginTop: "var(--space-2)", fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{aiMsg}</p>
+            )}
+          </>
         )}
       </section>
 

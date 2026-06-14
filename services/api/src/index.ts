@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Context } from "hono";
 import type { Task } from "@nestr/core";
-import { createPlanner } from "./ai.js";
+import { createPlanner, type AiProvider } from "./ai.js";
 import {
   exchangeCode,
   googleAuthUrl,
@@ -22,11 +22,12 @@ import {
   setTasks,
   upsertUser,
   userIdForSession,
+  getAiCredential,
+  setAiCredential,
 } from "./db.js";
 
 interface Env {
   DB: D1Database;
-  ANTHROPIC_API_KEY: string;
   ENCRYPTION_KEY: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -70,24 +71,35 @@ class HttpError extends Error {
   }
 }
 
-function planner(c: Ctx) {
-  if (!c.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY manquante");
-  return createPlanner(c.env.ANTHROPIC_API_KEY);
+/** Planner IA de l'utilisateur (provider + clé chiffrée en DB). 401 si non
+ *  connecté, 400 si pas de clé IA configurée. */
+async function plannerFor(c: Ctx) {
+  const userId = await requireUser(c);
+  const cred = await getAiCredential(c.env.DB, userId);
+  if (!cred) return null;
+  const { apiKey } = JSON.parse(await decryptText(cred.enc, c.env.ENCRYPTION_KEY));
+  return createPlanner(cred.provider as AiProvider, apiKey);
 }
 
-// --- IA (non authentifié, pas de données utilisateur persistées) ---
+const NO_AI = { error: "Aucune clé IA configurée. Ajoute ta clé dans les Réglages." } as const;
+
+// --- IA (authentifié ; utilise la clé IA de l'utilisateur) ---
 app.post("/ai/estimate", async (c) => {
   const { tasks } = await c.req.json<{ tasks: Task[] }>();
   if (!Array.isArray(tasks) || tasks.length === 0) {
     return c.json({ error: "tasks requis" }, 400);
   }
-  return c.json({ estimates: await planner(c).estimateDurations(tasks) });
+  const p = await plannerFor(c);
+  if (!p) return c.json(NO_AI, 400);
+  return c.json({ estimates: await p.estimateDurations(tasks) });
 });
 
 app.post("/ai/breakdown", async (c) => {
   const { task } = await c.req.json<{ task: Task }>();
   if (!task?.id) return c.json({ error: "task requis" }, 400);
-  return c.json({ taskId: task.id, subtasks: await planner(c).breakdownTask(task) });
+  const p = await plannerFor(c);
+  if (!p) return c.json(NO_AI, 400);
+  return c.json({ taskId: task.id, subtasks: await p.breakdownTask(task) });
 });
 
 app.post("/ai/advise", async (c) => {
@@ -96,7 +108,9 @@ app.post("/ai/advise", async (c) => {
     freeMinutes: number;
   }>();
   if (!Array.isArray(tasks)) return c.json({ error: "tasks requis" }, 400);
-  return c.json(await planner(c).advise(tasks, freeMinutes ?? 0));
+  const p = await plannerFor(c);
+  if (!p) return c.json(NO_AI, 400);
+  return c.json(await p.advise(tasks, freeMinutes ?? 0));
 });
 
 // --- Auth Google (login + connexion calendrier en une fois) ---
@@ -167,11 +181,36 @@ app.get("/auth/google/callback", async (c) => {
 // --- Compte ---
 app.get("/me", async (c) => {
   const userId = await requireUser(c);
-  const [google, apple] = await Promise.all([
+  const [google, apple, ai] = await Promise.all([
     getCredential(c.env.DB, userId, "google"),
     getCredential(c.env.DB, userId, "apple"),
+    getAiCredential(c.env.DB, userId),
   ]);
-  return c.json({ googleConnected: !!google, appleConnected: !!apple });
+  return c.json({
+    googleConnected: !!google,
+    appleConnected: !!apple,
+    aiConfigured: !!ai,
+    aiProvider: ai?.provider ?? null,
+  });
+});
+
+/** Enregistre la clé IA de l'utilisateur (chiffrée). Provider : anthropic | openai. */
+app.post("/me/ai", async (c) => {
+  const userId = await requireUser(c);
+  const { provider, apiKey } = await c.req.json<{ provider: string; apiKey: string }>();
+  if (provider !== "anthropic" && provider !== "openai") {
+    return c.json({ error: "provider invalide (anthropic | openai)" }, 400);
+  }
+  if (!apiKey || apiKey.trim().length < 8) {
+    return c.json({ error: "clé API requise" }, 400);
+  }
+  await setAiCredential(
+    c.env.DB,
+    userId,
+    provider,
+    await encryptText(JSON.stringify({ apiKey: apiKey.trim() }), c.env.ENCRYPTION_KEY),
+  );
+  return c.json({ ok: true });
 });
 
 app.get("/me/tasks", async (c) => {

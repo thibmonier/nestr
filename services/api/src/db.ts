@@ -138,3 +138,31 @@ export async function getCredential(
     .first<{ enc: string }>();
   return row?.enc ?? null;
 }
+
+/** Config IA (provider + clé chiffrée), un provider actif par utilisateur. */
+export async function setAiCredential(
+  db: D1Database,
+  userId: string,
+  provider: string,
+  enc: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO ai_credentials (user_id, provider, enc, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET provider = excluded.provider, enc = excluded.enc, updated_at = excluded.updated_at`,
+    )
+    .bind(userId, provider, enc, new Date().toISOString())
+    .run();
+}
+
+/** Renvoie {provider, enc} de la config IA, ou null si non configurée. */
+export async function getAiCredential(
+  db: D1Database,
+  userId: string,
+): Promise<{ provider: string; enc: string } | null> {
+  const row = await db
+    .prepare("SELECT provider, enc FROM ai_credentials WHERE user_id = ?")
+    .bind(userId)
+    .first<{ provider: string; enc: string }>();
+  return row ?? null;
+}
