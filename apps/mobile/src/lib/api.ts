@@ -1,4 +1,5 @@
-/** Client HTTP du Worker : session sécurisée (SecureStore natif / localStorage web). */
+/** Session sécurisée (SecureStore natif / localStorage web) + client partagé. */
+import { createClient, type NestrClient } from "@nestr/client";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { API_URL } from "../config";
@@ -27,27 +28,12 @@ export async function clearSession(): Promise<void> {
   await SecureStore.deleteItemAsync(SESSION_KEY);
 }
 
+/** Client partagé : injecte la session (async) et la purge au 401. */
+export const client: NestrClient = createClient({
+  baseUrl: API_URL,
+  getToken: getSession,
+  onUnauthorized: clearSession,
+});
+
 /** fetch JSON authentifié. Lève sur erreur HTTP ; 401 ⇒ purge la session. */
-export async function api<T>(
-  path: string,
-  opts: { method?: string; body?: unknown } = {},
-): Promise<T> {
-  const token = await getSession();
-  const res = await fetch(`${API_URL}${path}`, {
-    method: opts.method ?? "GET",
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-  });
-  if (res.status === 401) {
-    await clearSession();
-    throw new Error("Session expirée — reconnecte-toi.");
-  }
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`${path} : ${res.status} ${detail}`);
-  }
-  return res.json() as Promise<T>;
-}
+export const api = client.api;

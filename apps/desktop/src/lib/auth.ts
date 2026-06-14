@@ -1,19 +1,10 @@
 import { isTauri } from "@tauri-apps/api/core";
-import { API_URL, api, clearSession, getSession, setSession } from "./api.js";
+import { API_URL, api, client, clearSession, getSession, setSession } from "./api.js";
 
-export type AiProvider = "anthropic" | "openai";
-
-export interface MeStatus {
-  googleConnected: boolean;
-  appleConnected: boolean;
-  aiConfigured: boolean;
-  aiProvider: AiProvider | null;
-}
+export type { AiProvider, MeStatus } from "@nestr/client";
 
 /** Enregistre la clé IA de l'utilisateur (provider + clé), chiffrée côté serveur. */
-export function saveAiKey(provider: AiProvider, apiKey: string): Promise<{ ok: boolean }> {
-  return api("/me/ai", { method: "POST", body: { provider, apiKey } });
-}
+export const saveAiKey = client.saveAiKey;
 
 export function isLoggedIn(): boolean {
   return !!getSession();
@@ -102,9 +93,7 @@ function loginViaPopup(): Promise<void> {
   });
 }
 
-export function fetchMe(): Promise<MeStatus> {
-  return api<MeStatus>("/me");
-}
+export const fetchMe = client.fetchMe;
 
 export function saveAppleCredentials(
   appleId: string,

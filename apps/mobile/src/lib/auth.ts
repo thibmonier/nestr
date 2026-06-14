@@ -6,16 +6,9 @@
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { API_URL, AUTH_REDIRECT } from "../config";
-import { api, clearSession, getSession, setSession } from "./api";
+import { client, clearSession, getSession, setSession } from "./api";
 
-export type AiProvider = "anthropic" | "openai";
-
-export interface MeStatus {
-  googleConnected: boolean;
-  appleConnected: boolean;
-  aiConfigured: boolean;
-  aiProvider: AiProvider | null;
-}
+export type { AiProvider, MeStatus } from "@nestr/client";
 
 export async function isLoggedIn(): Promise<boolean> {
   return !!(await getSession());
@@ -44,14 +37,7 @@ export async function loginWithGoogle(): Promise<void> {
   await setSession(token);
 }
 
-export function fetchMe(): Promise<MeStatus> {
-  return api<MeStatus>("/me");
-}
+export const fetchMe = client.fetchMe;
 
 /** Enregistre la clé IA (provider + clé), chiffrée côté serveur. */
-export function saveAiKey(
-  provider: AiProvider,
-  apiKey: string,
-): Promise<{ ok: boolean }> {
-  return api("/me/ai", { method: "POST", body: { provider, apiKey } });
-}
+export const saveAiKey = client.saveAiKey;
