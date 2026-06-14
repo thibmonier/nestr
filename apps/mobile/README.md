@@ -38,3 +38,21 @@ validé côté Worker (`isAppRedirect`, `services/api/src/index.ts`).
 Clé API **par utilisateur** (Anthropic ou OpenAI), saisie dans Réglages →
 `POST /me/ai` (chiffrée côté serveur). Les fonctions IA sont désactivées tant
 qu'aucune clé n'est configurée (`aiConfigured`).
+
+## Build de test (EAS / iOS)
+
+Expo Go ne capte pas le deep-link `nestr://` → login Google non testable. Pour
+un vrai build installable (login complet), utiliser **EAS Build** (`eas.json`).
+Nécessite un compte Apple Developer (certs/provisioning gérés par EAS).
+
+```bash
+# CLI sous Node 20 (cf. avertissement ci-dessus)
+nvm use 20
+npx eas-cli login              # compte Expo
+npx eas-cli init               # crée le projectId (écrit dans app.json extra.eas)
+npx eas-cli device:create      # enregistre l'iPhone de test (profil "preview" ad-hoc)
+npx eas-cli build -p ios --profile preview   # login Apple à la demande → IPA installable
+```
+
+Profils (`eas.json`) : `preview` = distribution interne ad-hoc (device enregistré,
+sans TestFlight) ; `production` = TestFlight/App Store (`eas submit`).
