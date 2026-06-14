@@ -1,19 +1,12 @@
-import type { Priority, Task } from "@nestr/core";
-import { durationLabel } from "../lib/format.js";
+import { useState, type DragEvent } from "react";
+import type { Task } from "@nestr/core";
+import { TaskRow, type TaskContext } from "../design/components/data-display/TaskRow.js";
+import { EmptyState } from "../design/components/feedback/EmptyState.js";
+import { SegmentedControl } from "../design/components/navigation/SegmentedControl.js";
+import { Input } from "../design/components/forms/Input.js";
 
-const PRIORITY_STYLE: Record<Priority, string> = {
-  urgent: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  high: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
-  medium: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
-  low: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
-};
-
-const PRIORITY_LABEL: Record<Priority, string> = {
-  low: "Basse",
-  medium: "Moyenne",
-  high: "Haute",
-  urgent: "Urgente",
-};
+/** Combien de tâches affichées avant « Voir plus » (limite la liste longue). */
+const PAGE = 25;
 
 const DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
@@ -36,100 +29,133 @@ function dueLabel(iso: string): string {
   });
 }
 
+/** Le contexte libre de @nestr/core ne s'affiche en chip que s'il vaut pro/perso. */
+function asContext(context?: string): TaskContext | undefined {
+  return context === "pro" || context === "perso" ? context : undefined;
+}
+
 export function TaskList({
   tasks,
   onToggle,
   onRemove,
   onBreakdown,
-  breakingId,
+  onDefer,
+  onEditStart,
+  draggable,
+  onTaskDragStart,
+  onTaskDragEnd,
 }: {
   tasks: Task[];
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
   onBreakdown: (task: Task) => void;
-  breakingId: string | null;
+  onDefer: (id: string) => void;
+  onEditStart: (id: string) => void;
+  draggable?: boolean;
+  onTaskDragStart?: (id: string, e: DragEvent<HTMLLIElement>) => void;
+  onTaskDragEnd?: () => void;
 }) {
+  const [filter, setFilter] = useState<"tous" | "pro" | "perso">("tous");
+  const [query, setQuery] = useState("");
+  const [limit, setLimit] = useState(PAGE);
+
   if (tasks.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400 dark:border-slate-700">
-        Aucune tâche. Ajoute-en une pour commencer.
-      </p>
-    );
+    return <EmptyState>Aucune tâche. Ajoute-en une pour commencer.</EmptyState>;
   }
 
+  const q = query.trim().toLowerCase();
+  const filtered = tasks.filter((t) => {
+    if (filter !== "tous" && t.context !== filter) return false;
+    if (!q) return true;
+    return (
+      t.title.toLowerCase().includes(q) ||
+      (t.tags ?? []).some((tag) => tag.toLowerCase().includes(q))
+    );
+  });
+  const visible = filtered.slice(0, limit);
+
   return (
-    <ul className="flex flex-col gap-2">
-      {tasks.map((t) => (
-        <li
-          key={t.id}
-          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-        >
-          <input
-            type="checkbox"
-            checked={t.status === "done"}
-            onChange={() => onToggle(t.id)}
-            className="h-4 w-4 accent-indigo-600"
-          />
-          <div className="flex-1">
-            <p
-              className={
-                t.status === "done"
-                  ? "text-sm text-slate-400 line-through"
-                  : "text-sm font-medium text-slate-800 dark:text-slate-100"
-              }
-            >
-              {t.title}
-            </p>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-              <span
-                className={`rounded-full px-2 py-0.5 font-medium ${PRIORITY_STYLE[t.priority]}`}
-              >
-                {PRIORITY_LABEL[t.priority]}
-              </span>
-              {t.estimatedMinutes != null && (
-                <span className="text-slate-500 dark:text-slate-400">
-                  {durationLabel(t.estimatedMinutes)}
-                </span>
-              )}
-              {t.context && (
-                <span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-                  {t.context}
-                </span>
-              )}
-              {t.energy && (
-                <span className="text-slate-400">énergie {t.energy}</span>
-              )}
-              {t.dueDate && (
-                <span className="rounded-full bg-rose-100 px-2 py-0.5 font-medium text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
-                  ⏱ {dueLabel(t.dueDate)}
-                </span>
-              )}
-              {t.allowedWeekdays && t.allowedWeekdays.length > 0 && (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                  📅 {weekdaysLabel(t.allowedWeekdays)}
-                </span>
-              )}
-            </div>
-          </div>
-          {t.status !== "done" && (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SegmentedControl
+          size="sm"
+          value={filter}
+          onChange={(v) => {
+            setFilter(v as "tous" | "pro" | "perso");
+            setLimit(PAGE);
+          }}
+          options={[
+            { value: "tous", label: "Tous" },
+            { value: "pro", label: "Pro" },
+            { value: "perso", label: "Perso" },
+          ]}
+        />
+        <Input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setLimit(PAGE);
+          }}
+          placeholder="Rechercher (titre, tag)…"
+          wrapperStyle={{ width: "14rem" }}
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState>Aucune tâche ne correspond au filtre.</EmptyState>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-2">
+            {visible.map((t) => (
+              <TaskRow
+                key={t.id}
+                title={t.title}
+                draggable={draggable && t.status !== "done"}
+                onDragStart={(e) => onTaskDragStart?.(t.id, e)}
+                onDragEnd={() => onTaskDragEnd?.()}
+                done={t.status === "done"}
+                priority={t.priority}
+                estimatedMin={t.estimatedMinutes}
+                spentMin={t.spentMinutes}
+                mode={t.mode}
+                context={asContext(t.context)}
+                tags={t.tags}
+                due={t.dueDate ? dueLabel(t.dueDate) : undefined}
+                days={
+                  t.allowedWeekdays && t.allowedWeekdays.length > 0
+                    ? weekdaysLabel(t.allowedWeekdays)
+                    : undefined
+                }
+                onToggle={() => onToggle(t.id)}
+                onEdit={() => onEditStart(t.id)}
+                onDefer={() => onDefer(t.id)}
+                onBreakdown={t.status !== "done" ? () => onBreakdown(t) : undefined}
+                onRemove={() => onRemove(t.id)}
+              />
+            ))}
+          </ul>
+
+          {filtered.length > limit && (
             <button
-              onClick={() => onBreakdown(t)}
-              disabled={breakingId !== null}
-              className="rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-40 dark:text-indigo-300 dark:hover:bg-indigo-950"
-              title="Découper en sous-tâches (IA)"
+              onClick={() => setLimit((n) => n + PAGE)}
+              style={{
+                alignSelf: "center",
+                border: "1px solid var(--border-strong)",
+                borderRadius: "var(--radius-md)",
+                background: "transparent",
+                color: "var(--text-muted)",
+                padding: "0.4rem 0.9rem",
+                fontFamily: "var(--font-sans)",
+                fontSize: "var(--text-sm)",
+                fontWeight: "var(--fw-medium)",
+                cursor: "pointer",
+              }}
             >
-              {breakingId === t.id ? "…" : "✂ Découper"}
+              Voir plus ({visible.length}/{filtered.length})
             </button>
           )}
-          <button
-            onClick={() => onRemove(t.id)}
-            className="text-slate-400 transition hover:text-red-500"
-            aria-label="Supprimer"
-          >
-            ✕
-          </button>
-        </li>
-      ))}
-    </ul>
+        </>
+      )}
+    </div>
   );
 }

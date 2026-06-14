@@ -1,4 +1,42 @@
 @import "tailwindcss";
+@import "./design/styles.css"; /* Nestr Design System — tokens + dark theme + fonts */
+
+/* ============================================================
+   Alias sémantiques exposés au thème Tailwind v4.
+   Permet `bg-surface`, `text-muted`, `border-border`, `rounded-lg`…
+   Les variables sources se remappent sous `.theme-dark`.
+   ============================================================ */
+@theme inline {
+  /* surfaces & bordures */
+  --color-bg-app:        var(--bg-app);
+  --color-surface:       var(--surface-card);
+  --color-surface-sunken:var(--surface-sunken);
+  --color-border:        var(--border);
+  --color-border-strong: var(--border-strong);
+
+  /* texte */
+  --color-text-strong:   var(--text-strong);
+  --color-text:          var(--text-body);
+  --color-text-muted:    var(--text-muted);
+  --color-text-subtle:   var(--text-subtle);
+
+  /* marque / accent */
+  --color-accent:        var(--accent);
+  --color-accent-hover:  var(--accent-hover);
+  --color-accent-press:  var(--accent-press);
+  --color-accent-soft:   var(--accent-soft);
+  --color-accent-text:   var(--accent-text);
+
+  /* rayons */
+  --radius-sm:           var(--radius-sm);
+  --radius-md:           var(--radius-md);
+  --radius-lg:           var(--radius-lg);
+  --radius-xl:           var(--radius-xl);
+
+  /* polices */
+  --font-sans:           var(--font-sans);
+  --font-mono:           var(--font-mono);
+}
 
 :root {
   color-scheme: light dark;
@@ -12,9 +50,5 @@ body,
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    sans-serif;
+  font-family: var(--font-sans);
 }

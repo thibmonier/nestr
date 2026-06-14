@@ -1,0 +1,65 @@
+/* ============================================================
+   Nestr — Dark theme
+   Activated by adding class `theme-dark` to any container (the
+   tokens cascade to descendants). Mirrors the desktop app's
+   Tailwind `dark:` classes: slate-900 canvas, slate-800 cards,
+   muted pill tints at ~40% alpha, brighter indigo text.
+   Only SEMANTIC aliases are remapped — base hue tokens are shared.
+   ============================================================ */
+
+.theme-dark {
+  /* surfaces & text */
+  --bg-app:        var(--slate-900);
+  --surface-card:  var(--slate-800);
+  --surface-sunken:var(--slate-700);
+  --border:        var(--slate-700);
+  --border-strong: var(--slate-600);
+
+  --text-strong:   var(--slate-100);
+  --text-body:     #e2e8f0;          /* slate-200 */
+  --text-muted:    var(--slate-400);
+  --text-subtle:   var(--slate-500);
+  --text-on-accent:#ffffff;
+
+  /* primary / brand — accent fill stays indigo-600; text brightens */
+  --accent:        var(--indigo-600);
+  --accent-hover:  var(--indigo-500);
+  --accent-press:  #c7d2fe;          /* indigo-200 — strongest indigo text */
+  --accent-soft:   color-mix(in srgb, var(--indigo-950) 55%, transparent);
+  --accent-soft-2: var(--indigo-700);
+  --accent-text:   var(--indigo-300);
+  --ring:          var(--indigo-500);
+
+  /* priority pills — 40% tint of the 900 hue + 300 text */
+  --prio-urgent-bg: rgb(127 29 29 / 0.40);  --prio-urgent-fg: #fca5a5;
+  --prio-high-bg:   rgb(124 45 18 / 0.40);  --prio-high-fg:   #fdba74;
+  --prio-medium-bg: rgb(12 74 110 / 0.40);  --prio-medium-fg: #7dd3fc;
+  --prio-low-bg:    var(--slate-700);       --prio-low-fg:    var(--slate-300);
+
+  /* meta tags */
+  --tag-context-bg: rgb(76 29 149 / 0.40);  --tag-context-fg: #c4b5fd;
+  --tag-due-bg:     rgb(136 19 55 / 0.40);  --tag-due-fg:     #fda4af;
+  --tag-days-bg:    rgb(6 78 59 / 0.40);    --tag-days-fg:    #6ee7b7;
+
+  /* calendar sources */
+  --cal-google-bg:  rgb(30 58 138 / 0.40);  --cal-google-fg:  #93c5fd;
+  --cal-apple-bg:   var(--slate-700);       --cal-apple-fg:   #e2e8f0;
+
+  /* timeline accents unchanged (indigo / violet read well on dark) */
+  --block-task:     var(--indigo-500);
+  --block-event:    var(--violet-400);
+
+  /* feedback */
+  --warn-bg:        rgb(120 53 15 / 0.20);  --warn-border: var(--amber-700); --warn-fg: var(--amber-300);
+  --danger:         var(--red-500);
+
+  /* shadows read softer on dark — deepen them */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.30);
+  --shadow:    0 1px 3px 0 rgb(0 0 0 / 0.40), 0 1px 2px -1px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.40), 0 2px 4px -2px rgb(0 0 0 / 0.40);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.50), 0 8px 10px -6px rgb(0 0 0 / 0.50);
+
+  --overlay-scrim: rgb(0 0 0 / 0.60);
+
+  color-scheme: dark;
+}

@@ -2,6 +2,8 @@
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 export type Energy = "low" | "medium" | "high";
+/** Vecteur de réalisation d'une tâche. */
+export type TaskMode = "video" | "phone" | "action" | "trip";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TimeOfDay = "morning" | "afternoon" | "evening" | "any";
 export type CalendarSource = "google" | "apple";
@@ -15,6 +17,10 @@ export interface Task {
   priority: Priority;
   /** Durée estimée en minutes (saisie utilisateur ou estimation IA). */
   estimatedMinutes?: number;
+  /** Minutes déjà passées sur la tâche (suivi du temps). */
+  spentMinutes?: number;
+  /** Vecteur de réalisation : visio / téléphone / action / déplacement. */
+  mode?: TaskMode;
   /** Échéance au format ISO (date ou datetime). */
   dueDate?: string;
   /** Charge cognitive — sert à placer les tâches lourdes aux heures de forte énergie. */

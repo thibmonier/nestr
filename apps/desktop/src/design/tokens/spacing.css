@@ -1,0 +1,44 @@
+/* ============================================================
+   Nestr — Spacing, radius, shadow & layout tokens
+   Mirrors the Tailwind defaults the app leans on (gap-2/3/4/8,
+   rounded-lg/xl/2xl, shadow-sm/shadow/xl).
+   ============================================================ */
+
+:root {
+  /* spacing scale (4px base) */
+  --space-1: 0.25rem;  /*  4 */
+  --space-2: 0.5rem;   /*  8 */
+  --space-3: 0.75rem;  /* 12 */
+  --space-4: 1rem;     /* 16 */
+  --space-5: 1.25rem;  /* 20 */
+  --space-6: 1.5rem;   /* 24 */
+  --space-8: 2rem;     /* 32 */
+  --space-10:2.5rem;   /* 40 */
+  --space-12:3rem;     /* 48 */
+
+  /* radii */
+  --radius-sm:  0.375rem; /*  6 — small buttons, time inputs */
+  --radius-md:  0.5rem;   /*  8 — buttons, inputs, selects */
+  --radius-lg:  0.75rem;  /* 12 — cards, list rows, form */
+  --radius-xl:  1rem;     /* 16 — modals, advice panel */
+  --radius-pill:9999px;   /* pills, avatars, toggles */
+
+  /* shadows — soft, low-contrast (light productivity UI) */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow:    0 1px 3px 0 rgb(15 23 42 / 0.10), 0 1px 2px -1px rgb(15 23 42 / 0.10);
+  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.10), 0 2px 4px -2px rgb(15 23 42 / 0.10);
+  --shadow-xl: 0 20px 25px -5px rgb(15 23 42 / 0.10), 0 8px 10px -6px rgb(15 23 42 / 0.10);
+
+  /* focus ring */
+  --ring-width: 2px;
+  --ring-offset: 2px;
+
+  /* layout */
+  --container-max: 72rem;  /* max-w-6xl content column */
+  --overlay-scrim: rgb(0 0 0 / 0.40);
+
+  /* motion — quick, no bounce; the app uses simple `transition` */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur-fast: 120ms; /* @kind other */
+  --dur-base: 180ms; /* @kind other */
+}
