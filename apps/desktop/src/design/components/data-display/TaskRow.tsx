@@ -35,6 +35,14 @@ export interface TaskRowProps {
   onDefer?: () => void;
   onBreakdown?: () => void;
   onRemove?: () => void;
+  /** True when this task is the one currently being timed. */
+  tracking?: boolean;
+  /** Live total minutes (spent + elapsed) while tracking — drives the live chip. */
+  liveSpentMin?: number;
+  /** Start timing this task. */
+  onStart?: () => void;
+  /** Stop timing — `pending` returns to backlog (time kept), `done` completes it. */
+  onStop?: (outcome: "pending" | "done") => void;
   /** Make the row a drag source (e.g. backlog → timeline). */
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLLIElement>) => void;
@@ -77,12 +85,18 @@ export function TaskRow({
   onDefer,
   onBreakdown,
   onRemove,
+  tracking = false,
+  liveSpentMin,
+  onStart,
+  onStop,
   draggable = false,
   onDragStart,
   onDragEnd,
 }: TaskRowProps) {
   const [menu, setMenu] = React.useState(false);
+  const [stopMenu, setStopMenu] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const stopRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (!menu) return;
@@ -93,13 +107,28 @@ export function TaskRow({
     return () => document.removeEventListener("mousedown", close);
   }, [menu]);
 
+  React.useEffect(() => {
+    if (!stopMenu) return;
+    const close = (e: MouseEvent) => {
+      if (stopRef.current && !stopRef.current.contains(e.target as Node)) setStopMenu(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [stopMenu]);
+
   const m = mode ? MODE[mode] : null;
   const ctx = context === "pro" ? { icon: "briefcase" as const, label: "Pro", tone: "neutral" as const }
             : context === "perso" ? { icon: "user" as const, label: "Perso", tone: "context" as const }
             : null;
-  const inProgress = !done && spentMin != null && estimatedMin != null && spentMin > 0;
-  const pct = inProgress ? Math.min(100, Math.round((spentMin / estimatedMin) * 100)) : 0;
-  const remaining = inProgress ? Math.max(0, estimatedMin - spentMin) : null;
+  // Temps affiché : pendant le suivi on prend le total live (passé + écoulé).
+  const effSpent = tracking ? (liveSpentMin ?? spentMin ?? 0) : spentMin;
+  const inProgress =
+    !done &&
+    estimatedMin != null &&
+    effSpent != null &&
+    (effSpent > 0 || tracking);
+  const pct = inProgress ? Math.min(100, Math.round(((effSpent ?? 0) / estimatedMin!) * 100)) : 0;
+  const remaining = inProgress ? Math.max(0, estimatedMin! - (effSpent ?? 0)) : null;
 
   const menuItem = (icon: IconName, label: string, fn?: () => void, danger?: boolean) => (
     <button
@@ -176,11 +205,59 @@ export function TaskRow({
               <div style={{ width: pct + "%", height: "100%", background: "var(--accent)" }}></div>
             </div>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
-              {durationLabel(spentMin)} passées · {durationLabel(remaining)} restant
+              {durationLabel(effSpent)} passées · {durationLabel(remaining)} restant
             </span>
           </div>
         )}
+        {tracking && !inProgress && (
+          <div style={{ marginTop: "0.5rem", display: "inline-flex", alignItems: "center", gap: "0.4rem", fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--accent-text)" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--accent)" }} />
+            En cours · {durationLabel(effSpent ?? 0)}
+          </div>
+        )}
       </div>
+
+      {!done && onStart && !tracking && (
+        <button
+          onClick={onStart}
+          aria-label="Démarrer le suivi"
+          title="Démarrer le suivi du temps"
+          style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            width: "1.9rem", height: "1.9rem", border: "none", background: "transparent",
+            borderRadius: "var(--radius-md)", color: "var(--accent-text)", cursor: "pointer",
+            flexShrink: 0, fontSize: "0.85rem",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-soft)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >▶</button>
+      )}
+
+      {tracking && onStop && (
+        <div ref={stopRef} style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            onClick={() => setStopMenu((v) => !v)}
+            aria-label="Arrêter le suivi"
+            title="Arrêter le suivi"
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: "1.9rem", height: "1.9rem", border: "none", background: "var(--accent)",
+              borderRadius: "var(--radius-md)", color: "var(--text-on-accent)", cursor: "pointer",
+              fontSize: "0.7rem",
+            }}
+          >■</button>
+          {stopMenu && (
+            <div style={{
+              position: "absolute", top: "2.1rem", right: 0, zIndex: 20, minWidth: "12rem",
+              background: "var(--surface-card)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-xl)", padding: "0.3rem", overflow: "hidden",
+            }}>
+              {menuItem("clockArrow", "Mettre en attente", () => { setStopMenu(false); onStop("pending"); })}
+              {menuItem("check", "Terminé", () => { setStopMenu(false); onStop("done"); })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
         <button

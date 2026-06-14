@@ -1,13 +1,14 @@
 /** Liste des tâches : filtre, recherche, toggle, édition, suppression. */
 import React, { useMemo, useState } from "react";
 import {
+  Alert,
   FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import type { Task } from "@nestr/core";
+import type { StopOutcome, Task } from "@nestr/core";
 import { Badge, EmptyState, Field, prioStyle, Segmented } from "../components/ui";
 import { durationLabel } from "../lib/format";
 import { useTheme, type Palette } from "../theme";
@@ -19,19 +20,35 @@ const PRIO_LABEL: Record<string, string> = {
   low: "Basse",
 };
 
+function confirmStop(onStop: (o: StopOutcome) => void) {
+  Alert.alert("Arrêter le suivi", "Que faire de cette tâche ?", [
+    { text: "Mettre en attente", onPress: () => onStop("pending") },
+    { text: "Terminé", onPress: () => onStop("done") },
+    { text: "Annuler", style: "cancel" },
+  ]);
+}
+
 /** Une ligne de tâche, mémoïsée pour limiter les re-rendus pendant le défilement. */
 const TaskRow = React.memo(function TaskRow({
   task,
   p,
+  tracking,
+  liveSpentMin,
   onToggle,
   onEdit,
   onRemove,
+  onStart,
+  onStop,
 }: {
   task: Task;
   p: Palette;
+  tracking: boolean;
+  liveSpentMin?: number;
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
+  onStart?: (id: string) => void;
+  onStop?: (o: StopOutcome) => void;
 }) {
   const done = task.status === "done";
   const ps = prioStyle(p, task.priority);
@@ -79,8 +96,29 @@ const TaskRow = React.memo(function TaskRow({
           {task.dueDate ? (
             <Badge text={task.dueDate.slice(0, 10)} bg={p.tagDue.bg} fg={p.tagDue.fg} />
           ) : null}
+          {tracking ? (
+            <Badge
+              text={`● ${durationLabel(liveSpentMin ?? 0)}`}
+              bg={p.accentSoft}
+              fg={p.accentText}
+            />
+          ) : null}
         </View>
       </View>
+
+      {!done && tracking && onStop ? (
+        <Pressable
+          onPress={() => confirmStop(onStop)}
+          hitSlop={8}
+          style={[styles.stopBtn, { backgroundColor: p.accent }]}
+        >
+          <Text style={{ color: p.onAccent, fontSize: 12 }}>■</Text>
+        </Pressable>
+      ) : !done && onStart ? (
+        <Pressable onPress={() => onStart(task.id)} hitSlop={8} style={styles.startBtn}>
+          <Text style={{ color: p.accentText, fontSize: 15 }}>▶</Text>
+        </Pressable>
+      ) : null}
 
       <Pressable onPress={() => onRemove(task.id)} hitSlop={8}>
         <Text style={{ color: p.textSubtle, fontSize: 20 }}>🗑</Text>
@@ -94,11 +132,19 @@ export function TasksScreen({
   onToggle,
   onEdit,
   onRemove,
+  activeTaskId,
+  elapsedMin,
+  onStart,
+  onStop,
 }: {
   tasks: Task[];
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
+  activeTaskId?: string | null;
+  elapsedMin?: number;
+  onStart?: (id: string) => void;
+  onStop?: (o: StopOutcome) => void;
 }) {
   const { palette: p } = useTheme();
   const [query, setQuery] = useState("");
@@ -145,11 +191,20 @@ export function TasksScreen({
           <TaskRow
             task={item}
             p={p}
+            tracking={activeTaskId === item.id}
+            liveSpentMin={
+              activeTaskId === item.id
+                ? (item.spentMinutes ?? 0) + Math.round(elapsedMin ?? 0)
+                : undefined
+            }
             onToggle={onToggle}
             onEdit={onEdit}
             onRemove={onRemove}
+            onStart={onStart}
+            onStop={onStop}
           />
         )}
+        extraData={`${activeTaskId}:${Math.round(elapsedMin ?? 0)}`}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
@@ -183,4 +238,17 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontSize: 15, fontWeight: "600" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  startBtn: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stopBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

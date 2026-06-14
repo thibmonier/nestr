@@ -41,6 +41,10 @@ export function TaskList({
   onBreakdown,
   onDefer,
   onEditStart,
+  activeTaskId,
+  elapsedMin,
+  onStart,
+  onStop,
   draggable,
   onTaskDragStart,
   onTaskDragEnd,
@@ -51,6 +55,10 @@ export function TaskList({
   onBreakdown: (task: Task) => void;
   onDefer: (id: string) => void;
   onEditStart: (id: string) => void;
+  activeTaskId?: string | null;
+  elapsedMin?: number;
+  onStart?: (id: string) => void;
+  onStop?: (outcome: "pending" | "done") => void;
   draggable?: boolean;
   onTaskDragStart?: (id: string, e: DragEvent<HTMLLIElement>) => void;
   onTaskDragEnd?: () => void;
@@ -126,6 +134,14 @@ export function TaskList({
                     ? weekdaysLabel(t.allowedWeekdays)
                     : undefined
                 }
+                tracking={activeTaskId === t.id}
+                liveSpentMin={
+                  activeTaskId === t.id
+                    ? (t.spentMinutes ?? 0) + Math.round(elapsedMin ?? 0)
+                    : undefined
+                }
+                onStart={onStart ? () => onStart(t.id) : undefined}
+                onStop={onStop}
                 onToggle={() => onToggle(t.id)}
                 onEdit={() => onEditStart(t.id)}
                 onDefer={() => onDefer(t.id)}
