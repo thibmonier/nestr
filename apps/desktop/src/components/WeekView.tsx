@@ -1,5 +1,5 @@
 import type { WeekPlan } from "@nestr/core";
-import { DayTimeline } from "./DayTimeline.js";
+import { DayTimeline, type TimelineMode } from "./DayTimeline.js";
 import { dayLabel } from "../lib/format.js";
 
 const REASON_LABEL: Record<string, string> = {
@@ -8,7 +8,7 @@ const REASON_LABEL: Record<string, string> = {
   no_time: "pas assez de temps libre cette semaine",
 };
 
-export function WeekView({ week }: { week: WeekPlan }) {
+export function WeekView({ week, mode }: { week: WeekPlan; mode?: TimelineMode }) {
   // N'affiche que les jours qui contiennent au moins un bloc.
   const activeDays = week.days.filter((d) => d.blocks.length > 0);
 
@@ -33,7 +33,7 @@ export function WeekView({ week }: { week: WeekPlan }) {
           >
             {dayLabel(d.date)}
           </h3>
-          <DayTimeline plan={d} hideUnscheduled />
+          <DayTimeline plan={d} hideUnscheduled mode={mode} />
         </div>
       ))}
 

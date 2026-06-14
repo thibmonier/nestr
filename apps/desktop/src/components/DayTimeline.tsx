@@ -2,6 +2,9 @@ import { useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import type { DailyPlan, TimeBlock } from "@nestr/core";
 import { hhmm, todayISO } from "../lib/format.js";
 import { EmptyState } from "../design/components/feedback/EmptyState.js";
+import { TimelineBlock } from "../design/components/data-display/TimelineBlock.js";
+
+export type TimelineMode = "compact" | "proportional";
 
 const PX_PER_MIN = 1.15;
 const GUTTER = 56; // largeur colonne des heures (px)
@@ -28,6 +31,7 @@ export function DayTimeline({
   hideUnscheduled,
   dragging,
   onSchedule,
+  mode = "proportional",
 }: {
   plan: DailyPlan | null;
   hideUnscheduled?: boolean;
@@ -35,6 +39,8 @@ export function DayTimeline({
   dragging?: boolean;
   /** Dépôt à `startMin` (minutes locales) sur la timeline. */
   onSchedule?: (startMin: number) => void;
+  /** Rendu compact (liste) ou proportionnel (∝ durée). @default "proportional" */
+  mode?: TimelineMode;
 }) {
   // Sans plan et sans glisser en cours : invite à planifier.
   if (!plan && !dragging) {
@@ -52,6 +58,9 @@ export function DayTimeline({
     .map((b) => ({ ...b, startMin: minOfDay(b.start), endMin: minOfDay(b.end) }))
     .sort((a, b) => a.startMin - b.startMin);
 
+  // Le glisser-déposer nécessite la grille proportionnelle (axe temps).
+  const effectiveMode: TimelineMode = dragging ? "proportional" : mode;
+
   return (
     <div className="flex flex-col gap-4">
       {allDay.map((b, i) => (
@@ -62,6 +71,19 @@ export function DayTimeline({
         (plan?.blocks.length ?? 0) === 0 && (
           <p style={{ fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>Journée vide.</p>
         )
+      ) : effectiveMode === "compact" ? (
+        <div className="flex flex-col gap-2">
+          {timed.map((b, i) => (
+            <TimelineBlock
+              key={i}
+              time={`${hhmm(b.start)} – ${hhmm(b.end)}`}
+              title={b.title}
+              kind={b.kind === "event" ? "event" : "task"}
+              source={b.source}
+              calendarName={b.calendarName}
+            />
+          ))}
+        </div>
       ) : (
         <ProportionalTimeline
           date={plan?.date ?? todayISO()}

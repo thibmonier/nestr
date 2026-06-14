@@ -72,6 +72,7 @@ export function App() {
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [planScope, setPlanScope] = useState<"jour" | "semaine">("jour");
   const [selectedDate, setSelectedDate] = useState(todayISO());
+  const [timelineMode, setTimelineMode] = useState<"compact" | "proportional">("proportional");
 
   function planNow() {
     return planScope === "semaine" ? planWeek() : planDay();
@@ -487,14 +488,27 @@ export function App() {
         </section>
 
         <section className="flex flex-col gap-4">
-          <h2 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>
-            {weekPlan ? "Plan de la semaine" : "Plan du jour"}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 style={{ fontSize: "var(--text-sm)", fontWeight: "var(--fw-semibold)", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--text-muted)" }}>
+              {weekPlan ? "Plan de la semaine" : "Plan du jour"}
+            </h2>
+            {(plan || weekPlan) && (
+              <SegmentedControl
+                size="sm"
+                value={timelineMode}
+                onChange={(v) => setTimelineMode(v as "compact" | "proportional")}
+                options={[
+                  { value: "proportional", label: "Proportionnel" },
+                  { value: "compact", label: "Compact" },
+                ]}
+              />
+            )}
+          </div>
           {advice && <AdvicePanel summary={advice.summary} tips={advice.tips} />}
           {weekPlan ? (
-            <WeekView week={weekPlan} />
+            <WeekView week={weekPlan} mode={timelineMode} />
           ) : (
-            <DayTimeline plan={plan} dragging={!!dragTaskId} onSchedule={scheduleManually} />
+            <DayTimeline plan={plan} dragging={!!dragTaskId} onSchedule={scheduleManually} mode={timelineMode} />
           )}
         </section>
       </main>
