@@ -23,6 +23,12 @@ export interface Task {
   mode?: TaskMode;
   /** Échéance au format ISO (date ou datetime). */
   dueDate?: string;
+  /**
+   * Date de report (dépriorisation), format ISO date "YYYY-MM-DD". La tâche est
+   * masquée du plan des jours strictement antérieurs à cette date. Absent = non
+   * reportée.
+   */
+  deferredTo?: string;
   /** Charge cognitive — sert à placer les tâches lourdes aux heures de forte énergie. */
   energy?: Energy;
   /** Moment préféré dans la journée. */
