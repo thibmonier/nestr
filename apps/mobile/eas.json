@@ -11,10 +11,11 @@
     },
     "preview": {
       "distribution": "internal",
-      "ios": { "simulator": false }
+      "ios": { "simulator": false, "image": "latest" }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": { "image": "latest" }
     }
   },
   "submit": {
