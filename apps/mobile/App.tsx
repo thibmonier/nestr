@@ -11,12 +11,16 @@ import {
 import { StatusBar } from "expo-status-bar";
 import {
   DEFAULT_PREFERENCES,
+  parsedToEvent,
+  parsedToTask,
+  type ParsedEntry,
   type PlanningPreferences,
   type Task,
 } from "@nestr/core";
 import { Button } from "./src/components/ui";
 import { fetchMe, isLoggedIn, loginWithGoogle, logout, type MeStatus } from "./src/lib/auth";
-import { loadPreferences, loadTasks, saveTasks } from "./src/lib/storage";
+import { loadPreferences, loadTasks, newId, saveTasks } from "./src/lib/storage";
+import { todayISO } from "./src/lib/format";
 import { pullPreferences, pullTasks, pushTasks } from "./src/lib/sync";
 import { PlanScreen } from "./src/screens/PlanScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
@@ -132,6 +136,16 @@ function Root() {
     setEditing(null);
   }
 
+  /** Validation de l'ajout rapide IA : crée la tâche ou l'événement local. */
+  function confirmQuickAdd(entry: ParsedEntry) {
+    const opts = { id: newId(), now: Date.now(), todayISO: todayISO() };
+    if (entry.kind === "event") {
+      localEvents.addEvent(parsedToEvent(entry, opts));
+    } else {
+      persist([parsedToTask(entry, opts), ...tasks]);
+    }
+  }
+
   if (booting) {
     return (
       <View style={[styles.center, { backgroundColor: p.bg }]}>
@@ -210,6 +224,7 @@ function Root() {
             preferences={prefs}
             aiConfigured={!!me?.aiConfigured}
             localEvents={localEvents.events}
+            onQuickAdd={confirmQuickAdd}
           />
         ) : (
           <SettingsScreen me={me} onReloadMe={loadData} onLogout={handleLogout} />

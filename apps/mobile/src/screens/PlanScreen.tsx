@@ -13,12 +13,14 @@ import {
   scheduleDay,
   type CalendarEvent,
   type DailyPlan,
+  type ParsedEntry,
   type PlanningPreferences,
   type Task,
   type TimeBlock,
 } from "@nestr/core";
 import { Button, Card, EmptyState, Segmented } from "../components/ui";
-import { advise, type PlanAdvice } from "../lib/ai";
+import { QuickAdd } from "../components/QuickAdd";
+import { advise, parseQuickAdd, type PlanAdvice } from "../lib/ai";
 import { fetchDayEvents } from "../lib/calendars";
 import { syncReminders } from "../lib/notifications";
 import { dayLabel, durationLabel, hhmm, todayISO } from "../lib/format";
@@ -135,12 +137,15 @@ export function PlanScreen({
   preferences,
   aiConfigured,
   localEvents = [],
+  onQuickAdd,
 }: {
   tasks: Task[];
   preferences: PlanningPreferences;
   aiConfigured: boolean;
   /** Événements créés localement (ajout rapide), fusionnés au plan du jour. */
   localEvents?: CalendarEvent[];
+  /** Validation de l'ajout rapide IA (crée tâche ou événement côté parent). */
+  onQuickAdd?: (entry: ParsedEntry) => void;
 }) {
   const { palette: p } = useTheme();
   const date = todayISO();
@@ -211,6 +216,10 @@ export function PlanScreen({
         <RefreshControl refreshing={loading} onRefresh={compute} tintColor={p.accent} />
       }
     >
+      {onQuickAdd ? (
+        <QuickAdd aiConfigured={aiConfigured} onParse={parseQuickAdd} onConfirm={onQuickAdd} />
+      ) : null}
+
       <View style={{ gap: 4 }}>
         <Text style={[styles.day, { color: p.textStrong }]}>{dayLabel(date)}</Text>
         {plan ? (
