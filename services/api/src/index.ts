@@ -28,6 +28,7 @@ import {
   userIdForSession,
   getAiCredential,
   setAiCredential,
+  deleteUserAccount,
 } from "./db.js";
 
 interface Env {
@@ -269,6 +270,13 @@ app.get("/me", async (c) => {
     aiConfigured: !!ai,
     aiProvider: ai?.provider ?? null,
   });
+});
+
+/** Suppression complète du compte (RGPD art. 17 — droit à l'effacement). */
+app.delete("/me", async (c) => {
+  const userId = await requireUser(c);
+  const counts = await deleteUserAccount(c.env.DB, userId);
+  return c.json({ deleted: true, entities: counts });
 });
 
 /** Enregistre la clé IA de l'utilisateur (chiffrée). Provider : anthropic | openai. */

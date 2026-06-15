@@ -97,6 +97,11 @@ function loginViaPopup(): Promise<void> {
 
 export const fetchMe = client.fetchMe;
 
+export async function deleteAccount(): Promise<void> {
+  await client.deleteAccount();
+  await clearSession();
+}
+
 export function saveAppleCredentials(
   appleId: string,
   appPassword: string,

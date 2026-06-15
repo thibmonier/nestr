@@ -6,8 +6,23 @@ import type { Task } from "@nestr/core";
 
 export type AiProvider = "anthropic" | "openai";
 
-const DEFAULT_MODEL: Record<AiProvider, string> = {
-  anthropic: "claude-opus-4-8",
+type UseCase = "parsing" | "planning" | "advice";
+
+const MODEL_CONFIG: Record<AiProvider, Record<UseCase, string>> = {
+  anthropic: {
+    parsing: "claude-3-5-haiku-20241022",
+    planning: "claude-opus-4-8",
+    advice: "claude-opus-4-8",
+  },
+  openai: {
+    parsing: "gpt-4o-mini",
+    planning: "gpt-4o-2024-08-06",
+    advice: "gpt-4o-2024-08-06",
+  },
+};
+
+const FALLBACK_MODEL: Record<AiProvider, string> = {
+  anthropic: "claude-sonnet-4-20250514",
   openai: "gpt-4o-2024-08-06",
 };
 
@@ -134,21 +149,24 @@ type SchemaKey = keyof typeof JSON_SCHEMAS;
 
 /** Client LLM abstrait : un appel structuré, validé par zod, quel que soit le provider. */
 interface LlmClient {
+  provider: AiProvider;
   complete<T>(
     system: string,
     user: string,
     key: SchemaKey,
     zodSchema: z.ZodType<T>,
     effort: "low" | "medium",
+    model: string,
   ): Promise<T>;
 }
 
 function anthropicClient(apiKey: string): LlmClient {
   const client = new Anthropic({ apiKey });
   return {
-    async complete(system, user, key, zodSchema, effort) {
+    provider: "anthropic",
+    async complete(system, user, key, zodSchema, effort, model) {
       const res = await client.messages.parse({
-        model: DEFAULT_MODEL.anthropic,
+        model,
         max_tokens: 4000,
         ...(key === "advice" ? { thinking: { type: "adaptive" as const } } : {}),
         output_config: { effort, format: zodOutputFormat(zodSchema as never) },
@@ -163,9 +181,10 @@ function anthropicClient(apiKey: string): LlmClient {
 function openaiClient(apiKey: string): LlmClient {
   const client = new OpenAI({ apiKey });
   return {
-    async complete(system, user, key, zodSchema) {
+    provider: "openai",
+    async complete(system, user, key, zodSchema, _effort, model) {
       const res = await client.chat.completions.create({
-        model: DEFAULT_MODEL.openai,
+        model,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -183,6 +202,7 @@ function openaiClient(apiKey: string): LlmClient {
 
 export function createPlanner(provider: AiProvider, apiKey: string) {
   const llm: LlmClient = provider === "openai" ? openaiClient(apiKey) : anthropicClient(apiKey);
+  const models = MODEL_CONFIG[provider];
 
   return {
     /** Estime durée et charge cognitive de chaque tâche. */
@@ -196,6 +216,7 @@ export function createPlanner(provider: AiProvider, apiKey: string) {
         "estimate",
         estimateSchema,
         "low",
+        models.planning,
       );
       return out?.estimates ?? [];
     },
@@ -210,27 +231,33 @@ export function createPlanner(provider: AiProvider, apiKey: string) {
         "breakdown",
         breakdownSchema,
         "medium",
+        models.planning,
       );
       return out?.subtasks ?? [];
     },
 
-    /** Structure une phrase en langage naturel en tâche ou événement. */
+    /** Structure une phrase en langage naturel en tâche ou événement.
+     *  Utilise le modèle léger (Haiku/gpt-4o-mini) avec fallback automatique. */
     async parseQuickAdd(text: string, todayISO: string) {
-      const entry = await llm.complete(
+      const systemPrompt =
         "Tu structures une saisie en langage naturel en tâche OU événement d'agenda. " +
-          "Choisis kind=event si la phrase décrit un rendez-vous daté avec un horaire ou des personnes " +
-          "(réunion, déjeuner, appel) ; sinon kind=task. " +
-          `Aujourd'hui = ${todayISO}. Résous les dates relatives (« mardi », « demain ») en YYYY-MM-DD. ` +
-          "Horaires en HH:mm 24h, null si absent. Déduis le mode : video (visio), phone (appel), " +
-          "trip (déplacement/présentiel hors bureau), action (par défaut). context=pro sauf indice perso. " +
-          "people = prénoms/noms cités. Titre court et clair, en français.",
-        text,
-        "parse",
-        parseSchema,
-        "low",
-      );
-      if (!entry) throw new Error("L'IA n'a pas pu structurer la phrase, reformule un peu.");
-      return entry;
+        "Choisis kind=event si la phrase décrit un rendez-vous daté avec un horaire ou des personnes " +
+        "(réunion, déjeuner, appel) ; sinon kind=task. " +
+        `Aujourd'hui = ${todayISO}. Résous les dates relatives (« mardi », « demain ») en YYYY-MM-DD. ` +
+        "Horaires en HH:mm 24h, null si absent. Déduis le mode : video (visio), phone (appel), " +
+        "trip (déplacement/présentiel hors bureau), action (par défaut). context=pro sauf indice perso. " +
+        "people = prénoms/noms cités. Titre court et clair, en français.";
+
+      try {
+        const entry = await llm.complete(systemPrompt, text, "parse", parseSchema, "low", models.parsing);
+        if (!entry) throw new Error("empty response");
+        return entry;
+      } catch {
+        console.warn(`${models.parsing} parsing failed, fallback to ${FALLBACK_MODEL[provider]}`);
+        const entry = await llm.complete(systemPrompt, text, "parse", parseSchema, "low", FALLBACK_MODEL[provider]);
+        if (!entry) throw new Error("L'IA n'a pas pu structurer la phrase, reformule un peu.");
+        return entry;
+      }
     },
 
     /** Conseils stratégiques pour la journée. */
@@ -244,8 +271,11 @@ export function createPlanner(provider: AiProvider, apiKey: string) {
         "advice",
         adviceSchema,
         "medium",
+        models.advice,
       );
       return out ?? { summary: "", tips: [] as string[] };
     },
   };
 }
+
+export { MODEL_CONFIG, FALLBACK_MODEL };

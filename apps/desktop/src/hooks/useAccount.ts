@@ -1,6 +1,7 @@
 /** Compte utilisateur : session Google, statut serveur, identifiants Apple/IA. */
 import { useEffect, useState } from "react";
 import {
+  deleteAccount,
   fetchMe,
   isLoggedIn,
   loginWithGoogle,
@@ -48,5 +49,11 @@ export function useAccount(setError: (s: string | null) => void) {
     setMe((m) => (m ? { ...m, aiConfigured: true, aiProvider: provider } : m));
   }
 
-  return { loggedIn, me, setMe, signIn, signOut, connectApple, saveAi };
+  async function removeAccount() {
+    await deleteAccount();
+    setLoggedIn(false);
+    setMe(null);
+  }
+
+  return { loggedIn, me, setMe, signIn, signOut, connectApple, saveAi, removeAccount };
 }

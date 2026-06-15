@@ -49,6 +49,7 @@ export interface NestrClient {
   pushTasks(tasks: Task[]): Promise<{ ok: boolean }>;
   pullPreferences(): Promise<PlanningPreferences | null>;
   pushPreferences(preferences: PlanningPreferences): Promise<{ ok: boolean }>;
+  deleteAccount(): Promise<{ deleted: boolean; entities: Record<string, number> }>;
 }
 
 export function createClient(opts: ClientOptions): NestrClient {
@@ -158,5 +159,8 @@ export function createClient(opts: ClientOptions): NestrClient {
 
     pushPreferences: (preferences) =>
       api("/me/preferences", { method: "PUT", body: { preferences } }),
+
+    deleteAccount: () =>
+      api("/me", { method: "DELETE" }),
   };
 }

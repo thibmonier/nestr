@@ -19,6 +19,67 @@ function mockD1(rows: Array<{ token: string; expires_at: string }>) {
   return { db: db as unknown as D1Database, remaining: () => remaining };
 }
 
+describe("deleteUserAccount (RGPD cascade delete)", () => {
+  function mockD1Batch() {
+    const calls: Array<{ sql: string; bindings: unknown[] }> = [];
+    const db = {
+      prepare: vi.fn().mockImplementation((sql: string) => ({
+        bind: vi.fn().mockImplementation((...bindings: unknown[]) => {
+          calls.push({ sql, bindings });
+          return { sql, bindings };
+        }),
+      })),
+      batch: vi.fn().mockImplementation((stmts: unknown[]) =>
+        Promise.resolve(
+          stmts.map(() => ({ meta: { changes: 1 } })),
+        ),
+      ),
+    };
+    return { db: db as unknown as D1Database, calls: () => calls };
+  }
+
+  it("supprime les 6 tables en batch atomique", async () => {
+    const { db, calls } = mockD1Batch();
+    const { deleteUserAccount } = await import("./db.js");
+    const counts = await deleteUserAccount(db, "user-42");
+
+    expect(calls().length).toBe(6);
+    expect(counts.sessions).toBe(1);
+    expect(counts.tasks).toBe(1);
+    expect(counts.preferences).toBe(1);
+    expect(counts.calendar_credentials).toBe(1);
+    expect(counts.ai_credentials).toBe(1);
+    expect(counts.users).toBe(1);
+  });
+
+  it("utilise WHERE id pour users, WHERE user_id pour le reste", async () => {
+    const { db, calls } = mockD1Batch();
+    const { deleteUserAccount } = await import("./db.js");
+    await deleteUserAccount(db, "user-42");
+
+    const userStmt = calls().find((c) => c.sql.includes("FROM users"));
+    const sessionStmt = calls().find((c) => c.sql.includes("FROM sessions"));
+    expect(userStmt!.sql).toContain("WHERE id = ?");
+    expect(sessionStmt!.sql).toContain("WHERE user_id = ?");
+  });
+
+  it("retourne 0 pour les tables vides", async () => {
+    const db = {
+      prepare: vi.fn().mockReturnValue({
+        bind: vi.fn().mockReturnValue({}),
+      }),
+      batch: vi.fn().mockResolvedValue(
+        Array.from({ length: 6 }, () => ({ meta: { changes: 0 } })),
+      ),
+    } as unknown as D1Database;
+
+    const { deleteUserAccount } = await import("./db.js");
+    const counts = await deleteUserAccount(db, "ghost-user");
+
+    expect(Object.values(counts).every((v) => v === 0)).toBe(true);
+  });
+});
+
 describe("deleteExpiredSessions (integration logic)", () => {
   it("supprime les sessions expirées en batch", async () => {
     const now = new Date();

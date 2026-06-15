@@ -41,3 +41,8 @@ export const fetchMe = client.fetchMe;
 
 /** Enregistre la clé IA (provider + clé), chiffrée côté serveur. */
 export const saveAiKey = client.saveAiKey;
+
+export async function deleteAccount(): Promise<void> {
+  await client.deleteAccount();
+  await clearSession();
+}
