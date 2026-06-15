@@ -22,6 +22,7 @@ import { fetchMe, isLoggedIn, loginWithGoogle, logout, type MeStatus } from "./s
 import { loadPreferences, loadTasks, newId, saveTasks } from "./src/lib/storage";
 import { todayISO } from "./src/lib/format";
 import { pullPreferences, pullTasks, pushTasks } from "./src/lib/sync";
+import { CalendarScreen } from "./src/screens/CalendarScreen";
 import { PlanScreen } from "./src/screens/PlanScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TaskModal } from "./src/screens/TaskModal";
@@ -30,11 +31,12 @@ import { useTimeTracking } from "./src/hooks/useTimeTracking";
 import { useLocalEvents } from "./src/hooks/useLocalEvents";
 import { ThemeProvider, useTheme } from "./src/theme";
 
-type Tab = "tasks" | "plan" | "settings";
+type Tab = "tasks" | "plan" | "calendar" | "settings";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "tasks", label: "Tâches", icon: "☑" },
   { key: "plan", label: "Plan", icon: "◷" },
+  { key: "calendar", label: "Agenda", icon: "▦" },
   { key: "settings", label: "Réglages", icon: "⚙" },
 ];
 
@@ -226,6 +228,8 @@ function Root() {
             localEvents={localEvents.events}
             onQuickAdd={confirmQuickAdd}
           />
+        ) : tab === "calendar" ? (
+          <CalendarScreen localEvents={localEvents.events} />
         ) : (
           <SettingsScreen me={me} onReloadMe={loadData} onLogout={handleLogout} />
         )}
