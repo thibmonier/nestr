@@ -21,9 +21,9 @@ import {
 } from "@nestr/core";
 import { Button } from "./src/components/ui";
 import { fetchMe, isLoggedIn, loginWithGoogle, logout, type MeStatus } from "./src/lib/auth";
-import { loadPreferences, loadTasks, newId, saveTasks } from "./src/lib/storage";
+import { loadPreferences, loadTasks, newId, savePreferences, saveTasks } from "./src/lib/storage";
 import { todayISO } from "./src/lib/format";
-import { pullPreferences, pullTasks, pushTasks } from "./src/lib/sync";
+import { pullPreferences, pullTasks, pushPreferences, pushTasks } from "./src/lib/sync";
 import { CalendarScreen } from "./src/screens/CalendarScreen";
 import { PlanScreen } from "./src/screens/PlanScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
@@ -95,6 +95,12 @@ function Root() {
     setTasksState(next);
     void saveTasks(next);
     void pushTasks(next).catch(() => {});
+  }, []);
+
+  const persistPrefs = useCallback((next: PlanningPreferences) => {
+    setPrefs(next);
+    void savePreferences(next);
+    void pushPreferences(next).catch(() => {});
   }, []);
 
   const tracking = useTimeTracking(tasks, persist);
@@ -242,7 +248,13 @@ function Root() {
         ) : tab === "calendar" ? (
           <CalendarScreen localEvents={localEvents.events} />
         ) : (
-          <SettingsScreen me={me} onReloadMe={loadData} onLogout={handleLogout} />
+          <SettingsScreen
+            me={me}
+            prefs={prefs}
+            onSavePrefs={persistPrefs}
+            onReloadMe={loadData}
+            onLogout={handleLogout}
+          />
         )}
       </View>
 

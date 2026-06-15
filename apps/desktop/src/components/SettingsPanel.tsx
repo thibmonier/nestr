@@ -226,6 +226,43 @@ export function SettingsPanel({
         </div>
       </section>
 
+      {/* Déplacements */}
+      <section style={{ marginBottom: "var(--space-6)" }}>
+        <h3 style={eyebrow}>Déplacements</h3>
+        <p style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>
+          Adresses de référence pour estimer le temps de trajet vers un rendez-vous.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <Input
+            label="Domicile"
+            value={prefs.locations?.home ?? ""}
+            onChange={(e) => update({ locations: { ...prefs.locations, home: e.target.value } })}
+            placeholder="12 rue… , Ville"
+          />
+          <Input
+            label="Bureau"
+            value={prefs.locations?.office ?? ""}
+            onChange={(e) => update({ locations: { ...prefs.locations, office: e.target.value } })}
+            placeholder="Adresse du bureau"
+          />
+          <Select
+            label="App d'itinéraire"
+            value={prefs.navApp?.desktop ?? "apple"}
+            onChange={(e) =>
+              update({
+                navApp: {
+                  mobile: prefs.navApp?.mobile ?? "apple",
+                  desktop: e.target.value as "apple" | "google",
+                },
+              })
+            }
+          >
+            <option value="apple">Apple Plans</option>
+            <option value="google">Google Maps</option>
+          </Select>
+        </div>
+      </section>
+
       {/* Calendrier Apple */}
       <section style={{ marginBottom: "var(--space-6)" }}>
         <h3 style={eyebrow}>Calendrier Apple (iCloud)</h3>
