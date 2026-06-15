@@ -290,6 +290,7 @@ export function App() {
             onConnectApple={account.connectApple}
             onSignIn={account.signIn}
             onSignOut={account.signOut}
+            onDeleteAccount={account.removeAccount}
             aiConfigured={me?.aiConfigured ?? false}
             aiProvider={me?.aiProvider ?? null}
             onSaveAiKey={account.saveAi}

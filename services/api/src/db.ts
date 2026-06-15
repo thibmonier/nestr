@@ -167,6 +167,39 @@ export async function getAiCredential(
   return row ?? null;
 }
 
+/** Supprime toutes les données d'un utilisateur (RGPD art. 17). Retourne le nombre d'entités supprimées par table. */
+export async function deleteUserAccount(
+  db: D1Database,
+  userId: string,
+): Promise<Record<string, number>> {
+  const tables = [
+    "sessions",
+    "tasks",
+    "preferences",
+    "calendar_credentials",
+    "ai_credentials",
+    "users",
+  ] as const;
+
+  const stmts = tables.map((t) =>
+    db
+      .prepare(
+        t === "users"
+          ? `DELETE FROM ${t} WHERE id = ?`
+          : `DELETE FROM ${t} WHERE user_id = ?`,
+      )
+      .bind(userId),
+  );
+
+  const results = await db.batch(stmts);
+
+  const counts: Record<string, number> = {};
+  tables.forEach((t, i) => {
+    counts[t] = results[i]?.meta.changes ?? 0;
+  });
+  return counts;
+}
+
 /** Supprime les sessions expirées par lots de 100. Retourne le total supprimé. */
 export async function deleteExpiredSessions(db: D1Database): Promise<number> {
   const now = new Date().toISOString();

@@ -1,9 +1,9 @@
 /** Réglages : compte Google, clé IA per-user, thème, déconnexion. */
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NavApp, PlanningPreferences } from "@nestr/core";
 import { Button, Card, Field, Segmented } from "../components/ui";
-import { saveAiKey, type AiProvider, type MeStatus } from "../lib/auth";
+import { deleteAccount, saveAiKey, type AiProvider, type MeStatus } from "../lib/auth";
 import { useTheme } from "../theme";
 
 export function SettingsScreen({
@@ -159,6 +159,15 @@ export function SettingsScreen({
       </Section>
 
       <Button label="Se déconnecter" variant="danger" onPress={onLogout} />
+
+      <Section title="Zone danger" p={p}>
+        <Card style={{ gap: 14, borderColor: "#dc2626", borderWidth: 1 }}>
+          <Text style={{ color: p.textMuted, fontSize: 13 }}>
+            Supprimer définitivement ton compte et toutes tes données. Irréversible.
+          </Text>
+          <DeleteAccountButton onConfirm={async () => { await deleteAccount(); onLogout(); }} p={p} />
+        </Card>
+      </Section>
     </ScrollView>
   );
 }
@@ -193,6 +202,62 @@ function Row({
     <View style={styles.row}>
       <Text style={{ color: p.textBody, fontSize: 15 }}>{label}</Text>
       <Text style={{ color: p.textMuted, fontSize: 14 }}>{value}</Text>
+    </View>
+  );
+}
+
+function DeleteAccountButton({
+  onConfirm,
+  p,
+}: {
+  onConfirm: () => Promise<void>;
+  p: ReturnType<typeof useTheme>["palette"];
+}) {
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleDelete() {
+    Alert.alert(
+      "Supprimer le compte",
+      "Toutes tes données seront effacées. Continuer ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Supprimer",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            try { await onConfirm(); } finally { setBusy(false); }
+          },
+        },
+      ],
+    );
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <TextInput
+        value={confirm}
+        onChangeText={setConfirm}
+        placeholder="Tape SUPPRIMER"
+        placeholderTextColor={p.textMuted}
+        style={{
+          borderWidth: 1,
+          borderColor: p.textMuted,
+          borderRadius: 8,
+          padding: 10,
+          color: p.textBody,
+          fontSize: 14,
+        }}
+        autoCapitalize="characters"
+      />
+      <Button
+        label={busy ? "Suppression…" : "Supprimer mon compte"}
+        variant="danger"
+        onPress={handleDelete}
+        disabled={confirm !== "SUPPRIMER" || busy}
+        loading={busy}
+      />
     </View>
   );
 }

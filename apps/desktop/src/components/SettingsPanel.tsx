@@ -37,6 +37,7 @@ export function SettingsPanel({
   onConnectApple,
   onSignIn,
   onSignOut,
+  onDeleteAccount,
   aiConfigured,
   aiProvider,
   onSaveAiKey,
@@ -49,6 +50,7 @@ export function SettingsPanel({
   onConnectApple: (appleId: string, appPassword: string) => Promise<void>;
   onSignIn: () => void;
   onSignOut: () => void;
+  onDeleteAccount: () => Promise<void>;
   aiConfigured: boolean;
   aiProvider: AiProvider | null;
   onSaveAiKey: (provider: AiProvider, apiKey: string) => Promise<void>;
@@ -72,6 +74,19 @@ export function SettingsPanel({
       setAiBusy(false);
     }
   }
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  async function submitDelete() {
+    setDeleteBusy(true);
+    try {
+      await onDeleteAccount();
+      onClose();
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   const [appleId, setAppleId] = useState("");
   const [applePassword, setApplePassword] = useState("");
   const [appleBusy, setAppleBusy] = useState(false);
@@ -307,6 +322,38 @@ export function SettingsPanel({
           </p>
         )}
       </section>
+
+      {/* Zone danger — suppression compte */}
+      {loggedIn && (
+        <section style={{
+          marginBottom: "var(--space-6)",
+          border: "1px solid var(--tag-urgency-high-bg, #dc2626)",
+          borderRadius: "var(--radius-lg)",
+          padding: "var(--space-3)",
+        }}>
+          <h3 style={{ ...eyebrow, color: "var(--tag-urgency-high-bg, #dc2626)" }}>Zone danger</h3>
+          <p style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)", color: "var(--text-body)" }}>
+            Supprimer définitivement ton compte et toutes tes données (tâches, préférences, calendriers, clés IA).
+            Cette action est irréversible.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "var(--space-2)" }}>
+            <Input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder='Tape SUPPRIMER pour confirmer'
+              wrapperStyle={{ flex: 1, minWidth: "14rem" }}
+            />
+            <Button
+              variant="secondary"
+              onClick={submitDelete}
+              disabled={deleteConfirm !== "SUPPRIMER" || deleteBusy}
+              style={{ color: "var(--tag-urgency-high-bg, #dc2626)", borderColor: "var(--tag-urgency-high-bg, #dc2626)" }}
+            >
+              {deleteBusy ? "Suppression…" : "Supprimer mon compte"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Plages par jour */}
       <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
