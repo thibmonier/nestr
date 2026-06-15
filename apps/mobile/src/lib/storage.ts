@@ -1,5 +1,6 @@
 /** Cache local (AsyncStorage) : tâches + préférences, miroir hors-ligne. */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { randomUUID } from "expo-crypto";
 import {
   DEFAULT_PREFERENCES,
   type CalendarEvent,
@@ -54,8 +55,5 @@ export function savePreferences(prefs: PlanningPreferences): Promise<void> {
 }
 
 export function newId(): string {
-  return (
-    globalThis.crypto?.randomUUID?.() ??
-    `id-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-  );
+  return randomUUID();
 }

@@ -17,6 +17,7 @@ import { decodeJwtPayload, decryptText, encryptText } from "./crypto.js";
 import { isAppRedirect } from "./redirect.js";
 import {
   createSession,
+  deleteExpiredSessions,
   getCredential,
   getPreferences,
   getTasks,
@@ -45,7 +46,16 @@ type Ctx = Context<{ Bindings: Env }>;
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("/*", cors());
+app.use(
+  "/*",
+  cors({
+    origin: [
+      "tauri://localhost",
+      "http://tauri.localhost",
+      "http://localhost:1420",
+    ],
+  }),
+);
 
 app.get("/", (c) => c.json({ service: "nestr-api", status: "ok" }));
 
@@ -352,4 +362,10 @@ app.onError((err, c) => {
   return c.json({ error: "Erreur interne" }, 500);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    const deleted = await deleteExpiredSessions(env.DB);
+    console.log(`Session cleanup: ${deleted} expired sessions deleted`);
+  },
+};

@@ -1,10 +1,11 @@
 /** Compte utilisateur : session Google, statut serveur, identifiants Apple/IA. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchMe,
   isLoggedIn,
   loginWithGoogle,
   logout,
+  migrateSession,
   saveAiKey,
   saveAppleCredentials,
   type AiProvider,
@@ -12,21 +13,27 @@ import {
 } from "../lib/auth.js";
 
 export function useAccount(setError: (s: string | null) => void) {
-  const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
+  const [loggedIn, setLoggedIn] = useState(false);
   const [me, setMe] = useState<MeStatus | null>(null);
+
+  useEffect(() => {
+    migrateSession()
+      .then(() => isLoggedIn())
+      .then(setLoggedIn);
+  }, []);
 
   async function signIn() {
     setError(null);
     try {
       await loginWithGoogle();
-      setLoggedIn(true); // déclenche l'hydratation depuis le serveur
+      setLoggedIn(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }
 
-  function signOut() {
-    logout();
+  async function signOut() {
+    await logout();
     setLoggedIn(false);
     setMe(null);
   }

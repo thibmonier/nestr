@@ -1,18 +1,20 @@
 import { isTauri } from "@tauri-apps/api/core";
-import { API_URL, api, client, clearSession, getSession, setSession } from "./api.js";
+import { API_URL, api, client, clearSession, getSession, migrateSession, setSession } from "./api.js";
 
 export type { AiProvider, MeStatus } from "@nestr/client";
 
 /** Enregistre la clé IA de l'utilisateur (provider + clé), chiffrée côté serveur. */
 export const saveAiKey = client.saveAiKey;
 
-export function isLoggedIn(): boolean {
-  return !!getSession();
+export async function isLoggedIn(): Promise<boolean> {
+  return !!(await getSession());
 }
 
-export function logout(): void {
-  clearSession();
+export async function logout(): Promise<void> {
+  await clearSession();
 }
+
+export { migrateSession };
 
 /**
  * Connexion Google. Deux flux selon l'environnement :
