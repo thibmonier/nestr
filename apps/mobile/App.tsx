@@ -23,6 +23,7 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TaskModal } from "./src/screens/TaskModal";
 import { TasksScreen } from "./src/screens/TasksScreen";
 import { useTimeTracking } from "./src/hooks/useTimeTracking";
+import { useLocalEvents } from "./src/hooks/useLocalEvents";
 import { ThemeProvider, useTheme } from "./src/theme";
 
 type Tab = "tasks" | "plan" | "settings";
@@ -89,6 +90,7 @@ function Root() {
   }, []);
 
   const tracking = useTimeTracking(tasks, persist);
+  const localEvents = useLocalEvents();
 
   async function handleLogin() {
     setLoggingIn(true);
@@ -207,6 +209,7 @@ function Root() {
             tasks={tasks}
             preferences={prefs}
             aiConfigured={!!me?.aiConfigured}
+            localEvents={localEvents.events}
           />
         ) : (
           <SettingsScreen me={me} onReloadMe={loadData} onLogout={handleLogout} />
