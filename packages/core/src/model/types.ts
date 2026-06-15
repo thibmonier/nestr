@@ -127,6 +127,24 @@ export interface AvailabilityWindow {
 /** Disponibilités de la semaine, indexées par jour JS (0=dimanche … 6=samedi). */
 export type WeeklyAvailability = AvailabilityWindow[][];
 
+/** App de navigation pour les deep-links d'itinéraire. */
+export type NavApp = "apple" | "google" | "waze";
+
+/** Adresses de référence pour le calcul du temps de trajet. */
+export interface SavedLocations {
+  home?: string;
+  office?: string;
+}
+
+/**
+ * App de navigation préférée par plateforme. Waze est inadapté au desktop :
+ * seules Apple Plans et Google Maps y sont proposées.
+ */
+export interface NavPreferences {
+  mobile: NavApp;
+  desktop: "apple" | "google";
+}
+
 /** Préférences de planification de l'utilisateur. */
 export interface PlanningPreferences {
   /** Contextes de tâches disponibles (ex. ["pro", "perso", "famille"]). */
@@ -139,6 +157,10 @@ export interface PlanningPreferences {
   defaultTaskMinutes: number;
   /** Plage horaire considérée comme "haute énergie" pour les tâches lourdes. */
   highEnergyWindow: { start: string; end: string };
+  /** Adresses de référence (domicile, bureau) pour le calcul de trajet. */
+  locations?: SavedLocations;
+  /** App de navigation préférée par plateforme. */
+  navApp?: NavPreferences;
 }
 
 const WEEKDAY_WINDOWS: AvailabilityWindow[] = [
@@ -170,4 +192,6 @@ export const DEFAULT_PREFERENCES: PlanningPreferences = {
   breakBetweenTasksMin: 10,
   defaultTaskMinutes: 30,
   highEnergyWindow: { start: "09:00", end: "12:00" },
+  locations: {},
+  navApp: { mobile: "apple", desktop: "apple" },
 };

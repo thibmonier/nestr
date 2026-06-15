@@ -1,7 +1,16 @@
 /** Calendrier : mini-mois navigable + agenda du jour (events locaux + connecteurs). */
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { CalendarEvent } from "@nestr/core";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { navUrl, type CalendarEvent, type NavApp, type TravelOrigin } from "@nestr/core";
 import { EmptyState } from "../components/ui";
 import { fetchDayEvents } from "../lib/calendars";
 import { hhmm, todayISO } from "../lib/format";
@@ -15,7 +24,35 @@ function dotColor(p: Palette, source: CalendarEvent["source"]): string {
   return p.accent;
 }
 
-export function CalendarScreen({ localEvents }: { localEvents: CalendarEvent[] }) {
+/** Propose le choix de l'origine du trajet puis délègue la réservation. */
+function askTravelOrigin(
+  event: CalendarEvent,
+  hasHome: boolean,
+  hasOffice: boolean,
+  onReserve: (event: CalendarEvent, origin: TravelOrigin) => void,
+) {
+  const buttons: { text: string; onPress?: () => void; style?: "cancel" }[] = [
+    { text: "Position actuelle", onPress: () => onReserve(event, "current") },
+  ];
+  if (hasHome) buttons.unshift({ text: "Domicile", onPress: () => onReserve(event, "home") });
+  if (hasOffice) buttons.push({ text: "Bureau", onPress: () => onReserve(event, "office") });
+  buttons.push({ text: "Annuler", style: "cancel" });
+  Alert.alert("Réserver le trajet", "Départ depuis :", buttons);
+}
+
+export function CalendarScreen({
+  localEvents,
+  navApp,
+  hasHome,
+  hasOffice,
+  onReserveTravel,
+}: {
+  localEvents: CalendarEvent[];
+  navApp: NavApp;
+  hasHome: boolean;
+  hasOffice: boolean;
+  onReserveTravel: (event: CalendarEvent, origin: TravelOrigin) => void;
+}) {
   const { palette: p } = useTheme();
   const today = todayISO();
   const [selectedISO, setSelectedISO] = useState(today);
@@ -146,8 +183,26 @@ export function CalendarScreen({ localEvents }: { localEvents: CalendarEvent[] }
                 <Text style={[styles.eventTitle, { color: p.textStrong }]}>{e.title}</Text>
                 <Text style={[styles.eventTime, { color: p.textSubtle }]}>
                   {e.allDay ? "Journée" : `${hhmm(e.start)} – ${hhmm(e.end)}`}
-                  {e.location ? ` · ${e.location}` : ""}
                 </Text>
+                {e.location ? (
+                  <>
+                    <Text style={[styles.eventLoc, { color: p.textSubtle }]}>📍 {e.location}</Text>
+                    <View style={styles.actions}>
+                      <Pressable
+                        hitSlop={6}
+                        onPress={() => Linking.openURL(navUrl(navApp, e.location!))}
+                      >
+                        <Text style={[styles.action, { color: p.accentText }]}>Itinéraire</Text>
+                      </Pressable>
+                      <Pressable
+                        hitSlop={6}
+                        onPress={() => askTravelOrigin(e, hasHome, hasOffice, onReserveTravel)}
+                      >
+                        <Text style={[styles.action, { color: p.accentText }]}>Réserver trajet</Text>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : null}
               </View>
             </View>
           ))}
@@ -177,4 +232,7 @@ const styles = StyleSheet.create({
   eventDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
   eventTitle: { fontSize: 15, fontWeight: "600" },
   eventTime: { fontSize: 12, marginTop: 2, fontVariant: ["tabular-nums"] },
+  eventLoc: { fontSize: 12, marginTop: 3 },
+  actions: { flexDirection: "row", gap: 16, marginTop: 6 },
+  action: { fontSize: 12, fontWeight: "600" },
 });

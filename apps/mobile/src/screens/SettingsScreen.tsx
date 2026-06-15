@@ -1,16 +1,21 @@
 /** Réglages : compte Google, clé IA per-user, thème, déconnexion. */
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import type { NavApp, PlanningPreferences } from "@nestr/core";
 import { Button, Card, Field, Segmented } from "../components/ui";
 import { saveAiKey, type AiProvider, type MeStatus } from "../lib/auth";
 import { useTheme } from "../theme";
 
 export function SettingsScreen({
   me,
+  prefs,
+  onSavePrefs,
   onReloadMe,
   onLogout,
 }: {
   me: MeStatus | null;
+  prefs: PlanningPreferences;
+  onSavePrefs: (p: PlanningPreferences) => void;
   onReloadMe: () => void;
   onLogout: () => void;
 }) {
@@ -19,6 +24,20 @@ export function SettingsScreen({
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Adresses éditées localement, persistées au blur (évite un push par frappe).
+  const [home, setHome] = useState(prefs.locations?.home ?? "");
+  const [office, setOffice] = useState(prefs.locations?.office ?? "");
+
+  function saveLocations() {
+    onSavePrefs({ ...prefs, locations: { home: home.trim(), office: office.trim() } });
+  }
+  function setNavApp(mobile: NavApp) {
+    onSavePrefs({
+      ...prefs,
+      navApp: { mobile, desktop: prefs.navApp?.desktop ?? "apple" },
+    });
+  }
 
   async function save() {
     if (apiKey.trim().length < 8) {
@@ -87,6 +106,42 @@ export function SettingsScreen({
           {msg ? (
             <Text style={{ color: p.textMuted, fontSize: 13 }}>{msg}</Text>
           ) : null}
+        </Card>
+      </Section>
+
+      <Section title="Déplacements" p={p}>
+        <Card style={{ gap: 14 }}>
+          <Text style={{ color: p.textMuted, fontSize: 13 }}>
+            Adresses de référence pour estimer le temps de trajet vers un rendez-vous.
+          </Text>
+          <Field
+            label="Domicile"
+            value={home}
+            onChangeText={setHome}
+            onBlur={saveLocations}
+            placeholder="12 rue… , Ville"
+            autoCapitalize="words"
+          />
+          <Field
+            label="Bureau"
+            value={office}
+            onChangeText={setOffice}
+            onBlur={saveLocations}
+            placeholder="Adresse du bureau"
+            autoCapitalize="words"
+          />
+          <View style={{ gap: 6 }}>
+            <Text style={[styles.lbl, { color: p.textMuted }]}>App de navigation</Text>
+            <Segmented
+              options={[
+                { value: "apple", label: "Plans" },
+                { value: "google", label: "Maps" },
+                { value: "waze", label: "Waze" },
+              ]}
+              value={prefs.navApp?.mobile ?? "apple"}
+              onChange={setNavApp}
+            />
+          </View>
         </Card>
       </Section>
 

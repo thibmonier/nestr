@@ -8,3 +8,4 @@ export * from "./engine/reminders.js";
 export * from "./engine/deferral.js";
 export * from "./ai/types.js";
 export * from "./ai/quickadd.js";
+export * from "./calendar/travel.js";

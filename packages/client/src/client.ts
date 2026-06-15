@@ -6,7 +6,13 @@
  * base diffèrent. On les injecte → une seule source de vérité pour les
  * endpoints (évite les divergences type le bug « /ai/* sans Bearer »).
  */
-import type { CalendarEvent, ParsedEntry, PlanningPreferences, Task } from "@nestr/core";
+import type {
+  CalendarEvent,
+  ParsedEntry,
+  PlanningPreferences,
+  Task,
+  TravelEstimate,
+} from "@nestr/core";
 import type {
   AiProvider,
   DurationEstimate,
@@ -32,6 +38,12 @@ export interface NestrClient {
   breakdownTask(task: Task): Promise<SubtaskProposal[]>;
   advise(tasks: Task[], freeMinutes: number): Promise<PlanAdvice>;
   parseQuickAdd(text: string, todayISO: string): Promise<ParsedEntry>;
+  /** Temps de trajet (Apple Maps). origin/destination = adresse ou "lat,lng". */
+  travelTime(
+    origin: string,
+    destination: string,
+    departureISO?: string,
+  ): Promise<TravelEstimate>;
   fetchDayEvents(start: string, end: string): Promise<CalendarEvent[]>;
   pullTasks(): Promise<Task[]>;
   pushTasks(tasks: Task[]): Promise<{ ok: boolean }>;
@@ -114,6 +126,12 @@ export function createClient(opts: ClientOptions): NestrClient {
       });
       return entry;
     },
+
+    travelTime: (origin, destination, departureISO) =>
+      api<TravelEstimate>("/calendar/travel", {
+        method: "POST",
+        body: { origin, destination, departure: departureISO },
+      }),
 
     /** Événements de toutes les sources connectées ; source non configurée ignorée. */
     async fetchDayEvents(start, end) {

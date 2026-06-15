@@ -11,7 +11,8 @@
       "bundleIdentifier": "com.thibautmonier.nestr",
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Nestr utilise ta position pour estimer le temps de trajet jusqu'à tes rendez-vous."
       }
     },
     "android": {
@@ -23,7 +24,13 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Nestr utilise ta position pour estimer le temps de trajet jusqu'à tes rendez-vous."
+        }
+      ]
     ],
     "extra": {
       "eas": {

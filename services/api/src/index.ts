@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { z } from "zod";
 import type { Context } from "hono";
 import type { Task } from "@nestr/core";
 import { createPlanner, type AiProvider } from "./ai.js";
+import { createAppleMaps, type AppleMapsConfig } from "./maps/apple.js";
 import {
   exchangeCode,
   googleAuthUrl,
@@ -33,6 +35,10 @@ interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_REDIRECT_URI?: string;
+  /** Clé privée MapKit (.p8 PEM PKCS8) pour Apple Maps Server API. */
+  APPLE_MAPS_KEY?: string;
+  APPLE_MAPS_KEY_ID?: string;
+  APPLE_MAPS_TEAM_ID?: string;
 }
 
 type Ctx = Context<{ Bindings: Env }>;
@@ -83,6 +89,45 @@ async function plannerFor(c: Ctx) {
 }
 
 const NO_AI = { error: "Aucune clé IA configurée. Ajoute ta clé dans les Réglages." } as const;
+
+/** Config Apple Maps si les 3 secrets sont présents, sinon null. */
+function appleMapsConfig(env: Env): AppleMapsConfig | null {
+  if (!env.APPLE_MAPS_KEY || !env.APPLE_MAPS_KEY_ID || !env.APPLE_MAPS_TEAM_ID) return null;
+  return {
+    privateKeyPem: env.APPLE_MAPS_KEY,
+    keyId: env.APPLE_MAPS_KEY_ID,
+    teamId: env.APPLE_MAPS_TEAM_ID,
+  };
+}
+
+const TravelReq = z.object({
+  /** Adresse ou paire "lat,lng". */
+  origin: z.string().min(1),
+  destination: z.string().min(1),
+  /** Heure de départ ISO (pour l'ETA trafic). Optionnelle. */
+  departure: z.string().datetime().optional(),
+});
+
+// --- Trajet (authentifié ; Apple Maps Server API) ---
+app.post("/calendar/travel", async (c) => {
+  await requireUser(c);
+  const cfg = appleMapsConfig(c.env);
+  if (!cfg) return c.json({ error: "Service de trajet non configuré." }, 503);
+  const parsed = TravelReq.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: "origin et destination requis" }, 400);
+
+  const maps = createAppleMaps(cfg);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const [origin, destination] = await Promise.all([
+    maps.resolveCoords(parsed.data.origin, nowSec),
+    maps.resolveCoords(parsed.data.destination, nowSec),
+  ]);
+  if (!origin || !destination) return c.json({ error: "Adresse introuvable" }, 422);
+
+  const estimate = await maps.eta(origin, destination, parsed.data.departure, nowSec);
+  if (!estimate) return c.json({ error: "Itinéraire indisponible" }, 422);
+  return c.json(estimate);
+});
 
 // --- IA (authentifié ; utilise la clé IA de l'utilisateur) ---
 app.post("/ai/estimate", async (c) => {

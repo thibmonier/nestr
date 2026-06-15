@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  buildTravelEvent,
   parsedToEvent,
   parsedToTask,
+  type CalendarEvent,
   type ParsedEntry,
   type PlanningPreferences,
   type Task,
+  type TravelOrigin,
 } from "@nestr/core";
 import { TaskModal } from "./components/TaskModal.js";
 import { TaskList } from "./components/TaskList.js";
@@ -21,6 +24,7 @@ import { AdvicePanel } from "./design/components/feedback/AdvicePanel.js";
 import { SegmentedControl } from "./design/components/navigation/SegmentedControl.js";
 import { loadPreferences, newId, savePreferences } from "./lib/storage.js";
 import { parseQuickAdd } from "./lib/ai.js";
+import { travelTime } from "./lib/calendars.js";
 import { todayISO } from "./lib/format.js";
 import { resolvedTheme, setTheme, type Theme } from "./lib/theme.js";
 import { useTasks } from "./hooks/useTasks.js";
@@ -104,6 +108,18 @@ export function App() {
     pendingReplan.current = true;
   }
 
+  /** Réserve le temps de trajet vers un événement : crée un bloc local « Trajet ». */
+  async function reserveTravel(event: CalendarEvent, origin: TravelOrigin) {
+    const from = origin === "office" ? prefs.locations?.office : prefs.locations?.home;
+    if (!from || !event.location) {
+      setError("Renseigne ton adresse de départ dans les Réglages.");
+      return;
+    }
+    const estimate = await travelTime(from, event.location, event.start);
+    localEvents.addEvent(buildTravelEvent(event, estimate, { id: newId() }));
+    pendingReplan.current = true;
+  }
+
   /** Clic sur un jour du calendrier : sync la vue principale (planifie ce jour). */
   function selectDay(iso: string) {
     setSelectedDate(iso);
@@ -123,6 +139,8 @@ export function App() {
         <CalendarPanel
           selectedDate={selectedDate}
           localEvents={localEvents.events}
+          prefs={prefs}
+          onReserveTravel={reserveTravel}
           onSelectDate={selectDay}
           onClose={() => setShowCalendar(false)}
         />

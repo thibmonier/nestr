@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { CalendarEvent } from "@nestr/core";
+import {
+  navUrl,
+  type CalendarEvent,
+  type PlanningPreferences,
+  type TravelOrigin,
+} from "@nestr/core";
 import { fetchDayEvents } from "../lib/calendars.js";
 import { hhmm, todayISO } from "../lib/format.js";
 import { Icon } from "../design/components/foundation/Icon.js";
@@ -13,12 +18,17 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 export function CalendarPanel({
   selectedDate,
   localEvents,
+  prefs,
+  onReserveTravel,
   onSelectDate,
   onClose,
 }: {
   selectedDate: string;
   /** Événements créés localement (ajout rapide), fusionnés à l'agenda du jour. */
   localEvents: CalendarEvent[];
+  prefs: PlanningPreferences;
+  /** Réserve un bloc trajet depuis le domicile ou le bureau vers l'événement. */
+  onReserveTravel: (event: CalendarEvent, origin: TravelOrigin) => Promise<void>;
   onSelectDate: (iso: string) => void;
   onClose: () => void;
 }) {
@@ -156,21 +166,89 @@ export function CalendarPanel({
         ) : events.length === 0 ? (
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--text-subtle)" }}>Aucun événement.</p>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
             {events.map((e) => (
-              <div key={e.id} style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
-                <span style={{ marginTop: "0.3rem", width: 8, height: 8, borderRadius: "var(--radius-pill)", background: e.source === "google" ? "var(--cal-google-fg)" : e.source === "apple" ? "var(--cal-apple-fg)" : "var(--block-event)", flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", fontWeight: "var(--fw-medium)" }}>{e.title}</div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
-                    {e.allDay ? "Journée" : `${hhmm(e.start)} – ${hhmm(e.end)}`}
-                  </div>
-                </div>
-              </div>
+              <EventRow key={e.id} event={e} prefs={prefs} onReserveTravel={onReserveTravel} />
             ))}
           </div>
         )}
       </div>
     </aside>
+  );
+}
+
+/** Ligne d'agenda : titre, horaire, adresse + actions trajet/itinéraire. */
+function EventRow({
+  event,
+  prefs,
+  onReserveTravel,
+}: {
+  event: CalendarEvent;
+  prefs: PlanningPreferences;
+  onReserveTravel: (event: CalendarEvent, origin: TravelOrigin) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState<TravelOrigin | null>(null);
+  const dot =
+    event.source === "google"
+      ? "var(--cal-google-fg)"
+      : event.source === "apple"
+        ? "var(--cal-apple-fg)"
+        : "var(--block-event)";
+  const navApp = prefs.navApp?.desktop ?? "apple";
+  const home = prefs.locations?.home?.trim();
+  const office = prefs.locations?.office?.trim();
+
+  async function reserve(origin: TravelOrigin) {
+    setBusy(origin);
+    try {
+      await onReserveTravel(event, origin);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const link: React.CSSProperties = {
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    cursor: "pointer",
+    fontSize: "var(--text-2xs)",
+    fontWeight: "var(--fw-medium)",
+    color: "var(--accent-text)",
+  };
+
+  return (
+    <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "flex-start" }}>
+      <span style={{ marginTop: "0.3rem", width: 8, height: 8, borderRadius: "var(--radius-pill)", background: dot, flexShrink: 0 }} />
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", fontWeight: "var(--fw-medium)" }}>{event.title}</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
+          {event.allDay ? "Journée" : `${hhmm(event.start)} – ${hhmm(event.end)}`}
+        </div>
+        {event.location ? (
+          <>
+            <div style={{ display: "flex", gap: "0.3rem", alignItems: "flex-start", marginTop: "0.2rem", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
+              <Icon name="trip" size={11} />
+              <span style={{ minWidth: 0 }}>{event.location}</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginTop: "0.35rem", alignItems: "center" }}>
+              <a href={navUrl(navApp, event.location)} target="_blank" rel="noreferrer" style={{ ...link, textDecoration: "none" }}>
+                Itinéraire
+              </a>
+              {home ? (
+                <button style={link} disabled={busy !== null} onClick={() => reserve("home")}>
+                  {busy === "home" ? "…" : "Trajet (domicile)"}
+                </button>
+              ) : null}
+              {office ? (
+                <button style={link} disabled={busy !== null} onClick={() => reserve("office")}>
+                  {busy === "office" ? "…" : "Trajet (bureau)"}
+                </button>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }
