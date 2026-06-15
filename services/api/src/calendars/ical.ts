@@ -113,6 +113,14 @@ export function parseICal(
   return events;
 }
 
+/** Déséchappe une valeur TEXT iCal (RFC 5545 : \\ \, \; \n). */
+function unescapeText(v: string): string {
+  return v
+    .replace(/\\n/gi, ", ")
+    .replace(/\\([\\,;])/g, "$1")
+    .trim();
+}
+
 function toEvent(
   ev: Record<string, { value: string; params: string }>,
   source: CalendarSource,
@@ -142,6 +150,9 @@ function toEvent(
       end: new Date(end).toISOString(),
       allDay,
       busy: status !== "CANCELLED" && transp !== "TRANSPARENT",
+      ...(ev["LOCATION"]?.value
+        ? { location: unescapeText(ev["LOCATION"]!.value) }
+        : {}),
     },
   ];
 }

@@ -76,6 +76,7 @@ export async function refreshAccessToken(
 interface GEvent {
   id: string;
   summary?: string;
+  location?: string;
   status?: string;
   transparency?: string;
   start?: { dateTime?: string; date?: string };
@@ -116,6 +117,7 @@ export async function listGoogleEvents(
         end: new Date(end).toISOString(),
         allDay: !e.start?.dateTime,
         busy: e.status !== "cancelled" && e.transparency !== "transparent",
+        ...(e.location ? { location: e.location } : {}),
       },
     ];
   });
