@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -9,21 +10,26 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import * as Location from "expo-location";
 import {
   addDays,
+  buildTravelEvent,
   DEFAULT_PREFERENCES,
   deferTask,
   parsedToEvent,
   parsedToTask,
+  type CalendarEvent,
   type ParsedEntry,
   type PlanningPreferences,
   type Task,
+  type TravelOrigin,
 } from "@nestr/core";
 import { Button } from "./src/components/ui";
 import { fetchMe, isLoggedIn, loginWithGoogle, logout, type MeStatus } from "./src/lib/auth";
 import { loadPreferences, loadTasks, newId, savePreferences, saveTasks } from "./src/lib/storage";
 import { todayISO } from "./src/lib/format";
 import { pullPreferences, pullTasks, pushPreferences, pushTasks } from "./src/lib/sync";
+import { travelTime } from "./src/lib/calendars";
 import { CalendarScreen } from "./src/screens/CalendarScreen";
 import { PlanScreen } from "./src/screens/PlanScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
@@ -153,6 +159,40 @@ function Root() {
   const deferTomorrow = (id: string) => deferTaskTo(id, addDays(todayISO(), 1));
   const deferLater = (id: string) => deferTaskTo(id, addDays(todayISO(), 7));
 
+  /** Position GPS actuelle "lat,lng", ou null si refusée/indisponible. */
+  async function currentCoords(): Promise<string | null> {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") return null;
+    const pos = await Location.getCurrentPositionAsync({});
+    return `${pos.coords.latitude},${pos.coords.longitude}`;
+  }
+
+  /** Réserve le temps de trajet vers un événement : insère un bloc local « Trajet ». */
+  async function reserveTravel(event: CalendarEvent, origin: TravelOrigin) {
+    if (!event.location) return;
+    const from =
+      origin === "current"
+        ? await currentCoords()
+        : origin === "office"
+          ? prefs.locations?.office
+          : prefs.locations?.home;
+    if (!from) {
+      Alert.alert(
+        "Adresse de départ manquante",
+        origin === "current"
+          ? "Position indisponible (permission refusée ?)."
+          : "Renseigne ton adresse dans les Réglages.",
+      );
+      return;
+    }
+    try {
+      const estimate = await travelTime(from, event.location, event.start);
+      localEvents.addEvent(buildTravelEvent(event, estimate, { id: newId() }));
+    } catch {
+      Alert.alert("Trajet indisponible", "Impossible d'estimer ce trajet.");
+    }
+  }
+
   /** Validation de l'ajout rapide IA : crée la tâche ou l'événement local. */
   function confirmQuickAdd(entry: ParsedEntry) {
     const opts = { id: newId(), now: Date.now(), todayISO: todayISO() };
@@ -246,7 +286,13 @@ function Root() {
             onQuickAdd={confirmQuickAdd}
           />
         ) : tab === "calendar" ? (
-          <CalendarScreen localEvents={localEvents.events} />
+          <CalendarScreen
+            localEvents={localEvents.events}
+            navApp={prefs.navApp?.mobile ?? "apple"}
+            hasHome={!!prefs.locations?.home?.trim()}
+            hasOffice={!!prefs.locations?.office?.trim()}
+            onReserveTravel={reserveTravel}
+          />
         ) : (
           <SettingsScreen
             me={me}
