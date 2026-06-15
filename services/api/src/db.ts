@@ -166,3 +166,21 @@ export async function getAiCredential(
     .first<{ provider: string; enc: string }>();
   return row ?? null;
 }
+
+/** Supprime les sessions expirées par lots de 100. Retourne le total supprimé. */
+export async function deleteExpiredSessions(db: D1Database): Promise<number> {
+  const now = new Date().toISOString();
+  let total = 0;
+  let deleted: number;
+  do {
+    const result = await db
+      .prepare(
+        "DELETE FROM sessions WHERE token IN (SELECT token FROM sessions WHERE expires_at < ? LIMIT 100)",
+      )
+      .bind(now)
+      .run();
+    deleted = result.meta.changes ?? 0;
+    total += deleted;
+  } while (deleted === 100);
+  return total;
+}

@@ -11,6 +11,9 @@
   //   ANTHROPIC_API_KEY, GOOGLE_CLIENT_ID/SECRET, ENCRYPTION_KEY (base64 32o)
   //   APPLE_MAPS_KEY (.p8 PEM PKCS8), APPLE_MAPS_KEY_ID, APPLE_MAPS_TEAM_ID
   // En local, lus depuis services/api/.dev.vars
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  },
   "d1_databases": [
     {
       "binding": "DB",
