@@ -10,26 +10,35 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
+  addDays,
   DEFAULT_PREFERENCES,
+  deferTask,
+  parsedToEvent,
+  parsedToTask,
+  type ParsedEntry,
   type PlanningPreferences,
   type Task,
 } from "@nestr/core";
 import { Button } from "./src/components/ui";
 import { fetchMe, isLoggedIn, loginWithGoogle, logout, type MeStatus } from "./src/lib/auth";
-import { loadPreferences, loadTasks, saveTasks } from "./src/lib/storage";
+import { loadPreferences, loadTasks, newId, saveTasks } from "./src/lib/storage";
+import { todayISO } from "./src/lib/format";
 import { pullPreferences, pullTasks, pushTasks } from "./src/lib/sync";
+import { CalendarScreen } from "./src/screens/CalendarScreen";
 import { PlanScreen } from "./src/screens/PlanScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TaskModal } from "./src/screens/TaskModal";
 import { TasksScreen } from "./src/screens/TasksScreen";
 import { useTimeTracking } from "./src/hooks/useTimeTracking";
+import { useLocalEvents } from "./src/hooks/useLocalEvents";
 import { ThemeProvider, useTheme } from "./src/theme";
 
-type Tab = "tasks" | "plan" | "settings";
+type Tab = "tasks" | "plan" | "calendar" | "settings";
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: "tasks", label: "Tâches", icon: "☑" },
   { key: "plan", label: "Plan", icon: "◷" },
+  { key: "calendar", label: "Agenda", icon: "▦" },
   { key: "settings", label: "Réglages", icon: "⚙" },
 ];
 
@@ -89,6 +98,7 @@ function Root() {
   }, []);
 
   const tracking = useTimeTracking(tasks, persist);
+  const localEvents = useLocalEvents();
 
   async function handleLogin() {
     setLoggingIn(true);
@@ -128,6 +138,23 @@ function Root() {
     persist(exists ? tasks.map((t) => (t.id === task.id ? task : t)) : [task, ...tasks]);
     setModalOpen(false);
     setEditing(null);
+  }
+
+  /** Reporte une tâche (dépriorisation) : la sort du plan jusqu'à la date. */
+  function deferTaskTo(id: string, dateISO: string) {
+    persist(tasks.map((t) => (t.id === id ? deferTask(t, dateISO) : t)));
+  }
+  const deferTomorrow = (id: string) => deferTaskTo(id, addDays(todayISO(), 1));
+  const deferLater = (id: string) => deferTaskTo(id, addDays(todayISO(), 7));
+
+  /** Validation de l'ajout rapide IA : crée la tâche ou l'événement local. */
+  function confirmQuickAdd(entry: ParsedEntry) {
+    const opts = { id: newId(), now: Date.now(), todayISO: todayISO() };
+    if (entry.kind === "event") {
+      localEvents.addEvent(parsedToEvent(entry, opts));
+    } else {
+      persist([parsedToTask(entry, opts), ...tasks]);
+    }
   }
 
   if (booting) {
@@ -197,6 +224,8 @@ function Root() {
               setEditing(t);
               setModalOpen(true);
             }}
+            onDefer={deferTomorrow}
+            onDeferLater={deferLater}
             activeTaskId={tracking.activeTaskId}
             elapsedMin={tracking.elapsedMin}
             onStart={tracking.start}
@@ -207,7 +236,11 @@ function Root() {
             tasks={tasks}
             preferences={prefs}
             aiConfigured={!!me?.aiConfigured}
+            localEvents={localEvents.events}
+            onQuickAdd={confirmQuickAdd}
           />
+        ) : tab === "calendar" ? (
+          <CalendarScreen localEvents={localEvents.events} />
         ) : (
           <SettingsScreen me={me} onReloadMe={loadData} onLogout={handleLogout} />
         )}

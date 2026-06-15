@@ -1,9 +1,29 @@
 /** Cache local (AsyncStorage) : tâches + préférences, miroir hors-ligne. */
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { DEFAULT_PREFERENCES, type PlanningPreferences, type Task } from "@nestr/core";
+import {
+  DEFAULT_PREFERENCES,
+  type CalendarEvent,
+  type PlanningPreferences,
+  type Task,
+} from "@nestr/core";
 
 const TASKS_KEY = "nestr.tasks";
 const PREFS_KEY = "nestr.preferences";
+const EVENTS_KEY = "nestr.events";
+
+/** Événements créés localement par l'ajout rapide (hors connecteurs). */
+export async function loadEvents(): Promise<CalendarEvent[]> {
+  try {
+    const raw = await AsyncStorage.getItem(EVENTS_KEY);
+    return raw ? (JSON.parse(raw) as CalendarEvent[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveEvents(events: CalendarEvent[]): Promise<void> {
+  return AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(events));
+}
 
 export async function loadTasks(): Promise<Task[]> {
   try {

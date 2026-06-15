@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build:core": "npm run build -w @nestr/core",
+    "build:packages": "npm run build -w @nestr/core -w @nestr/client",
     "test": "npm run test -w @nestr/core",
     "desktop": "npm run dev -w @nestr/desktop",
     "desktop:tauri": "npm run tauri -w @nestr/desktop -- dev",

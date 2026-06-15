@@ -8,16 +8,27 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.nestr.app",
-      "supportsTablet": true
+      "bundleIdentifier": "com.thibautmonier.nestr",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.nestr.app"
+      "package": "com.thibautmonier.nestr"
     },
     "web": {
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": ["expo-secure-store", "expo-notifications"]
+    "plugins": [
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "afe25ed6-65b1-40fc-b433-7cfa2239886c"
+      }
+    }
   }
 }

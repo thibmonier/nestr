@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import type { Priority, Task } from "@nestr/core";
+import type { Priority, Task, TaskMode } from "@nestr/core";
 import { Button, Field, Segmented } from "../components/ui";
 import { newId } from "../lib/storage";
 import { useTheme } from "../theme";
@@ -18,6 +18,13 @@ const PRIORITIES: { value: Priority; label: string }[] = [
   { value: "medium", label: "Moyenne" },
   { value: "high", label: "Haute" },
   { value: "urgent", label: "Urgente" },
+];
+
+const MODES: { value: TaskMode; label: string }[] = [
+  { value: "action", label: "Action" },
+  { value: "video", label: "Visio" },
+  { value: "phone", label: "Tél." },
+  { value: "trip", label: "Dépl." },
 ];
 
 export function TaskModal({
@@ -37,6 +44,7 @@ export function TaskModal({
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
   const [context, setContext] = useState<string>(contexts[0] ?? "pro");
+  const [mode, setMode] = useState<TaskMode>("action");
   const [minutes, setMinutes] = useState("");
   const [due, setDue] = useState("");
   const [tags, setTags] = useState("");
@@ -47,6 +55,7 @@ export function TaskModal({
     setTitle(initial?.title ?? "");
     setPriority(initial?.priority ?? "medium");
     setContext(initial?.context ?? contexts[0] ?? "pro");
+    setMode(initial?.mode ?? "action");
     setMinutes(initial?.estimatedMinutes ? String(initial.estimatedMinutes) : "");
     setDue(initial?.dueDate?.slice(0, 10) ?? "");
     setTags(initial?.tags?.join(", ") ?? "");
@@ -62,6 +71,7 @@ export function TaskModal({
       status: initial?.status ?? "todo",
       priority,
       context,
+      mode,
       estimatedMinutes: Number.isFinite(mins) && mins > 0 ? mins : undefined,
       dueDate: due.trim() || undefined,
       tags: tags
@@ -107,6 +117,11 @@ export function TaskModal({
             <View style={{ gap: 6 }}>
               <Text style={[styles.lbl, { color: p.textMuted }]}>Priorité</Text>
               <Segmented options={PRIORITIES} value={priority} onChange={setPriority} />
+            </View>
+
+            <View style={{ gap: 6 }}>
+              <Text style={[styles.lbl, { color: p.textMuted }]}>Vecteur de réalisation</Text>
+              <Segmented options={MODES} value={mode} onChange={setMode} />
             </View>
 
             <Field
