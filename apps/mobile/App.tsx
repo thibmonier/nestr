@@ -10,7 +10,9 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
+  addDays,
   DEFAULT_PREFERENCES,
+  deferTask,
   parsedToEvent,
   parsedToTask,
   type ParsedEntry,
@@ -138,6 +140,13 @@ function Root() {
     setEditing(null);
   }
 
+  /** Reporte une tâche (dépriorisation) : la sort du plan jusqu'à la date. */
+  function deferTaskTo(id: string, dateISO: string) {
+    persist(tasks.map((t) => (t.id === id ? deferTask(t, dateISO) : t)));
+  }
+  const deferTomorrow = (id: string) => deferTaskTo(id, addDays(todayISO(), 1));
+  const deferLater = (id: string) => deferTaskTo(id, addDays(todayISO(), 7));
+
   /** Validation de l'ajout rapide IA : crée la tâche ou l'événement local. */
   function confirmQuickAdd(entry: ParsedEntry) {
     const opts = { id: newId(), now: Date.now(), todayISO: todayISO() };
@@ -215,6 +224,8 @@ function Root() {
               setEditing(t);
               setModalOpen(true);
             }}
+            onDefer={deferTomorrow}
+            onDeferLater={deferLater}
             activeTaskId={tracking.activeTaskId}
             elapsedMin={tracking.elapsedMin}
             onStart={tracking.start}

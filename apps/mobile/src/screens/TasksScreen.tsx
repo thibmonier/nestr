@@ -8,9 +8,9 @@ import {
   Text,
   View,
 } from "react-native";
-import type { StopOutcome, Task } from "@nestr/core";
+import { isDeferredFrom, type StopOutcome, type Task } from "@nestr/core";
 import { Badge, EmptyState, Field, prioStyle, Segmented } from "../components/ui";
-import { durationLabel } from "../lib/format";
+import { durationLabel, todayISO } from "../lib/format";
 import { useTheme, type Palette } from "../theme";
 
 const PRIO_LABEL: Record<string, string> = {
@@ -19,6 +19,26 @@ const PRIO_LABEL: Record<string, string> = {
   medium: "Moyenne",
   low: "Basse",
 };
+
+const MODE_LABEL: Record<string, string> = {
+  video: "Visio",
+  phone: "Tél.",
+  trip: "Dépl.",
+  action: "Action",
+};
+
+/** Menu d'actions secondaires (reporter). */
+function openMenu(
+  task: Task,
+  onDefer: (id: string) => void,
+  onDeferLater: (id: string) => void,
+) {
+  Alert.alert(task.title, "Reporter cette tâche ?", [
+    { text: "À demain", onPress: () => onDefer(task.id) },
+    { text: "À plus tard (7 j)", onPress: () => onDeferLater(task.id) },
+    { text: "Annuler", style: "cancel" },
+  ]);
+}
 
 function confirmStop(onStop: (o: StopOutcome) => void) {
   Alert.alert("Arrêter le suivi", "Que faire de cette tâche ?", [
@@ -37,6 +57,8 @@ const TaskRow = React.memo(function TaskRow({
   onToggle,
   onEdit,
   onRemove,
+  onDefer,
+  onDeferLater,
   onStart,
   onStop,
 }: {
@@ -47,11 +69,17 @@ const TaskRow = React.memo(function TaskRow({
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
+  onDefer: (id: string) => void;
+  onDeferLater: (id: string) => void;
   onStart?: (id: string) => void;
   onStop?: (o: StopOutcome) => void;
 }) {
   const done = task.status === "done";
   const ps = prioStyle(p, task.priority);
+  const spent = (liveSpentMin ?? task.spentMinutes) ?? 0;
+  const est = task.estimatedMinutes ?? 0;
+  const ratio = est > 0 ? Math.min(1, spent / est) : 0;
+  const deferred = isDeferredFrom(task, todayISO());
   return (
     <Pressable
       onPress={() => onEdit(task)}
@@ -90,12 +118,21 @@ const TaskRow = React.memo(function TaskRow({
           {task.context ? (
             <Badge text={task.context} bg={p.tagContext.bg} fg={p.tagContext.fg} />
           ) : null}
+          {task.mode ? (
+            <Badge text={MODE_LABEL[task.mode] ?? task.mode} bg={p.sunken} fg={p.textMuted} />
+          ) : null}
           {task.estimatedMinutes ? (
             <Badge text={durationLabel(task.estimatedMinutes)} bg={p.sunken} fg={p.textMuted} />
           ) : null}
           {task.dueDate ? (
             <Badge text={task.dueDate.slice(0, 10)} bg={p.tagDue.bg} fg={p.tagDue.fg} />
           ) : null}
+          {deferred ? (
+            <Badge text={`Reporté ${task.deferredTo?.slice(0, 10)}`} bg={p.tagDue.bg} fg={p.tagDue.fg} />
+          ) : null}
+          {(task.tags ?? []).map((tag) => (
+            <Badge key={tag} text={`#${tag}`} bg={p.sunken} fg={p.textSubtle} />
+          ))}
           {tracking ? (
             <Badge
               text={`● ${durationLabel(liveSpentMin ?? 0)}`}
@@ -104,6 +141,16 @@ const TaskRow = React.memo(function TaskRow({
             />
           ) : null}
         </View>
+        {spent > 0 && est > 0 ? (
+          <View style={[styles.barTrack, { backgroundColor: p.sunken }]}>
+            <View
+              style={[
+                styles.barFill,
+                { backgroundColor: ratio >= 1 ? p.danger : p.accent, width: `${ratio * 100}%` },
+              ]}
+            />
+          </View>
+        ) : null}
       </View>
 
       {!done && tracking && onStop ? (
@@ -120,6 +167,12 @@ const TaskRow = React.memo(function TaskRow({
         </Pressable>
       ) : null}
 
+      {!done ? (
+        <Pressable onPress={() => openMenu(task, onDefer, onDeferLater)} hitSlop={8}>
+          <Text style={{ color: p.textSubtle, fontSize: 20 }}>⋯</Text>
+        </Pressable>
+      ) : null}
+
       <Pressable onPress={() => onRemove(task.id)} hitSlop={8}>
         <Text style={{ color: p.textSubtle, fontSize: 20 }}>🗑</Text>
       </Pressable>
@@ -132,6 +185,8 @@ export function TasksScreen({
   onToggle,
   onEdit,
   onRemove,
+  onDefer,
+  onDeferLater,
   activeTaskId,
   elapsedMin,
   onStart,
@@ -141,6 +196,8 @@ export function TasksScreen({
   onToggle: (id: string) => void;
   onEdit: (task: Task) => void;
   onRemove: (id: string) => void;
+  onDefer: (id: string) => void;
+  onDeferLater: (id: string) => void;
   activeTaskId?: string | null;
   elapsedMin?: number;
   onStart?: (id: string) => void;
@@ -200,6 +257,8 @@ export function TasksScreen({
             onToggle={onToggle}
             onEdit={onEdit}
             onRemove={onRemove}
+            onDefer={onDefer}
+            onDeferLater={onDeferLater}
             onStart={onStart}
             onStop={onStop}
           />
@@ -238,6 +297,8 @@ const styles = StyleSheet.create({
   },
   rowTitle: { fontSize: 15, fontWeight: "600" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  barTrack: { height: 4, borderRadius: 2, overflow: "hidden", marginTop: 2 },
+  barFill: { height: 4, borderRadius: 2 },
   startBtn: {
     width: 30,
     height: 30,
