@@ -40,7 +40,7 @@ jobs:
           name: packages-dist
           path: packages/
       - run: npx tsc --noEmit -p services/api/tsconfig.json
-      - run: npx tsc --noEmit -p apps/desktop/tsconfig.json
+      - run: npx tsc --noEmit -p apps/desktop/tsconfig.check.json
 
   test-api:
     needs: build-packages
