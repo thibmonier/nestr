@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  typecheck:
+  build-packages:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,10 +16,17 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx tsc --noEmit -p services/api/tsconfig.json
-      - run: npx tsc --noEmit -p apps/desktop/tsconfig.json
+      - run: npm run build -w @nestr/core
+      - run: npm run build -w @nestr/client
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-dist
+          path: |
+            packages/core/dist/
+            packages/client/dist/
 
-  test:
+  typecheck:
+    needs: build-packages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,4 +35,41 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages-dist
+          path: packages/
+      - run: npx tsc --noEmit -p services/api/tsconfig.json
+      - run: npx tsc --noEmit -p apps/desktop/tsconfig.check.json
+
+  test-api:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages-dist
+          path: packages/
       - run: npm test -w @nestr/api
+
+  test-desktop:
+    needs: build-packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages-dist
+          path: packages/
+      - run: npm run test:coverage -w @nestr/desktop
