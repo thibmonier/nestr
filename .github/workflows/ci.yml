@@ -19,7 +19,7 @@ jobs:
       - run: npx tsc --noEmit -p services/api/tsconfig.json
       - run: npx tsc --noEmit -p apps/desktop/tsconfig.json
 
-  test:
+  test-api:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,3 +29,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test -w @nestr/api
+
+  test-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage -w @nestr/desktop
